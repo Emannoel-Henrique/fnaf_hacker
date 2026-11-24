@@ -335,7 +335,7 @@ body.shake #scene{animation:shake .08s infinite}
         <div><b>10</b><span>aparelhos conectados</span></div>
         <div><b>6</b><span>visitantes na recepção</span></div>
         <div><b>6h</b><span>de plantão (cerca de 4 min)</span></div>
-        <div><b>4</b><span>tipos de bicho à solta</span></div>
+        <div><b>3</b><span>tipos de bicho à solta</span></div>
       </div>
     </div>
     <a href="#missao" class="scrollcue">Role para conhecer a missão ↓</a>
@@ -441,7 +441,6 @@ body.shake #scene{animation:shake .08s infinite}
     <div class="lpin creatures">
       <div class="cardL"><canvas id="hostCanvas" width="320" height="240" aria-label="Imagem de câmera mostrando um Hospedeiro"></canvas><h3 style="color:#ff8a98">O Hospedeiro</h3><p>Um golpista que você deixou entrar. Ele se deforma, quebra o vidro da recepção e passa a morar nos aparelhos que corrompeu. Ele aparece nas câmeras até você corrigir esses aparelhos.</p></div>
       <div class="cardL"><canvas id="peekCanvas" width="320" height="240" aria-label="Imagem mostrando o Espreitador na janela dos servidores"></canvas><h3 style="color:#ff8a98">O Espreitador</h3><p>Quando a rede começa a ser tomada, alguma coisa sobe devagar na janela da sala de servidores, à sua direita. Ele só observa… e some se você olhar de volta.</p></div>
-      <div class="cardL"><img src="assets/animatronicos.jpg" alt="Os dois animatrônicos da dupla, com casca vermelha rachada e SESI SENAI no peito" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid #3a2418;display:block;margin-bottom:10px"><h3 style="color:var(--amber)">🤫 A dupla do pôster</h3><p>Tem um pôster vermelho na parede da direita. Clicar nele é engraçado… mas não clique demais. Eles são lentos, barulhentos, e <b>porta nenhuma segura os dois</b>.</p></div>
     </div>
   </section>
 
@@ -494,7 +493,7 @@ body.shake #scene{animation:shake .08s infinite}
       <h2>O plantão começa à meia-noite</h2>
       <p style="margin:0 auto">Use fones para a experiência completa 🎧</p>
       <button class="go" id="btnStart">▶ COMEÇAR O PLANTÃO</button>
-      <label class="chk"><input type="checkbox" id="calm"> Modo apresentação (sem sustos e sem game over… a não ser que você invoque a dupla do pôster)</label>
+      <label class="chk"><input type="checkbox" id="calm"> Modo apresentação (sem sustos e sem game over)</label>
       <div class="duo">Dupla: Emannoel &amp; John · Internet das Coisas · Técnico em Desenvolvimento de Sistemas</div>
     </div>
   </section>
@@ -1150,7 +1149,7 @@ const wireMats=[0xcc3322,0xe8c23a,0x3a7bd5,0x2e9d4f,0xd9772b].map(c=>new THREE.M
 function cyl(rt,rb,h,mat,x,y,z,parent){ const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,12),mat); m.position.set(x,y,z); parent.add(m); return m; }
 function ball(r,mat,x,y,z,parent){ const m=new THREE.Mesh(new THREE.SphereGeometry(r,12,8),mat); m.position.set(x,y,z); parent.add(m); return m; }
 function wires(parent,x,y,z,n,len){ for(let i=0;i<n;i++){ const w=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,len*rnd(.7,1.3),4),wireMats[i%wireMats.length]); w.position.set(x+rnd(-.05,.05),y+rnd(-.03,.03),z+rnd(-.03,.03)); w.rotation.set(rnd(-.5,.5),0,rnd(-.5,.5)); parent.add(w); } }
-function makeAnimatronic(faceURI,curly){
+function makeAnimatronic(o){
   const g=new THREE.Group();
   const legs=[-.13,.13].map(x=>{ const hip=new THREE.Group(); hip.position.set(x,1.0,0); g.add(hip);
     cyl(.1,.085,.46,AM.cream,0,-.23,0,hip); ball(.065,AM.endo,0,-.48,0,hip); wires(hip,0,-.46,.05,3,.14);
@@ -1174,18 +1173,69 @@ function makeAnimatronic(faceURI,curly){
     return {shoulder,fore,hand}; });
   cyl(.05,.06,.16,AM.endo,0,1.96,0,g); wires(g,0,1.96,.05,6,.14);
   const head=new THREE.Group(); head.position.y=2.15; g.add(head);
-  const faceT=new THREE.TextureLoader().load(faceURI||''); faceT.encoding=THREE.sRGBEncoding;
-  const faceMat=new THREE.MeshStandardMaterial({map:faceT,roughness:.7,emissive:0xffffff,emissiveMap:faceT,emissiveIntensity:.12});
-  const skull=new THREE.Mesh(new THREE.BoxGeometry(.3,.34,.3),[AM.tan,AM.tan,curly?AM.hair:AM.tan,AM.tan,faceMat,AM.tan]); head.add(skull);
-  [-1,1].forEach(s=>{ const e=cyl(.055,.055,.035,AM.tan,s*.165,0,-.01,head); e.rotation.z=Math.PI/2; });
-  if(curly){ for(let i=0;i<46;i++){ const a=rnd(0,Math.PI*2), b=rnd(0,1.2); ball(rnd(.04,.058),AM.hair,Math.cos(a)*.15*Math.sin(b+.4),.15+Math.cos(b)*.06,Math.sin(a)*.15*Math.sin(b+.4)-.02,head); } }
-  else { box(.32,.07,.31,AM.hair,0,.19,-.005,head); box(.32,.2,.04,AM.hair,0,.08,-.16,head); }
-  const light=new THREE.PointLight(0xffb070,.7,2.4,2); light.position.set(0,0,.5); head.add(light);
+  const face=buildHead(head,o);
+  const light=new THREE.PointLight(0xffb070,.75,2.4,2); light.position.set(0,0,.5); head.add(light);
   g.scale.setScalar(.88); g.visible=false;
-  g.userData={legs,arms,head,light,phase:rnd(0,3)};
+  g.userData={legs,arms,head,light,jaw:face.jaw,eyes:face.eyes,look:o.look,phase:rnd(0,3)};
   return g;
 }
-const ANIM=[makeAnimatronic(window.TEX_ROSTO1,true),makeAnimatronic(window.TEX_ROSTO2,false)];
+/* rosto modelado: crânio rachado, olhos grandes e claros, sorriso aberto com dentes, fios no lado quebrado */
+AM.skin=new THREE.MeshStandardMaterial({map:canvasTex(512,512,(g,w,h)=>{ shellDraw(g,w,h,'#a8733f');
+  g.strokeStyle='rgba(28,12,5,.7)'; g.lineWidth=1.3;
+  for(let i=0;i<22;i++){ g.beginPath(); let x=rnd(0,w),y=rnd(0,h); g.moveTo(x,y); for(let k=0;k<5;k++){ x+=rnd(-20,20); y+=rnd(-20,20); g.lineTo(x,y);} g.stroke(); }
+  g.fillStyle='rgba(200,165,120,.35)'; for(let i=0;i<60;i++){ g.fillRect(rnd(0,w),rnd(0,h),rnd(2,10),rnd(1,3)); } }),roughness:.68});
+AM.sclera=new THREE.MeshStandardMaterial({color:0xe4d4b4,roughness:.3});
+AM.iris=new THREE.MeshBasicMaterial({color:0x4b2c17}); AM.pupil=new THREE.MeshBasicMaterial({color:0x060302}); AM.shine=new THREE.MeshBasicMaterial({color:0xfff6e8});
+AM.teeth=new THREE.MeshStandardMaterial({color:0xe2d3b0,roughness:.45}); AM.cavity=new THREE.MeshBasicMaterial({color:0x0b0503});
+AM.brow=new THREE.MeshStandardMaterial({color:0x24160d,roughness:.9});
+function buildHead(head,o){
+  const S=AM.skin;
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(.16,30,22),S); skull.scale.set(1,1.1,1.02); skull.position.y=.02; head.add(skull);
+  [-1,1].forEach(s=>{ const c=ball(.05,S,s*.082,-.035,.092,head); c.scale.set(1,.8,.8); });          // bochechas do sorriso
+  // boca aberta: cavidade escura + dentes de cima
+  const cav=new THREE.Mesh(new THREE.SphereGeometry(1,18,10),AM.cavity); cav.scale.set(.078,.042,.05); cav.position.set(0,-.07,.1); head.add(cav);
+  for(let i=0;i<8;i++){ if(o.gap&&i===4) continue; const a=(i-3.5)*.14, t=box(.018,.026,.012,AM.teeth,Math.sin(a)*.135,-.056,Math.cos(a)*.135-.002,head); t.rotation.y=a; }
+  const lip=new THREE.Mesh(new THREE.TorusGeometry(.072,.011,6,20,Math.PI),S); lip.rotation.set(-.25,0,Math.PI); lip.scale.set(1,.42,1); lip.position.set(0,-.038,.122); head.add(lip);
+  // maxilar com dentes de baixo (abre e fecha)
+  const jaw=new THREE.Group(); jaw.position.set(0,-.06,-.01); head.add(jaw);
+  const jm=new THREE.Mesh(new THREE.SphereGeometry(.122,24,12,0,Math.PI*2,Math.PI/2,Math.PI/2),S); jm.scale.set(1,.78,1.1); jaw.add(jm);
+  for(let i=0;i<7;i++){ const a=(i-3)*.14, t=box(.016,.02,.011,AM.teeth,Math.sin(a)*.118,-.014,Math.cos(a)*.118+.01,jaw); t.rotation.y=a; }
+  ball(.04,S,0,-.075,.09,jaw).scale.set(1.3,.7,.9);                                                 // queixo
+  // nariz largo
+  ball(.036,S,0,.002,.163,head).scale.set(1.15,.85,1.05); box(.03,.065,.03,S,0,.048,.152,head);
+  [-1,1].forEach(s=>ball(.009,AM.cavity,s*.015,-.02,.18,head));
+  // olhos grandes, claros, olhando de lado (como na arte)
+  const eyes=[];
+  [-1,1].forEach(s=>{ const e=new THREE.Group(); e.position.set(s*.064,.058,.108); head.add(e);
+    ball(.047,AM.sclera,0,0,0,e);
+    const ir=new THREE.Group(); e.add(ir);
+    const iris=new THREE.Mesh(new THREE.CircleGeometry(.022,22),AM.iris); iris.position.z=.0475; ir.add(iris);
+    const pu=new THREE.Mesh(new THREE.CircleGeometry(.01,14),AM.pupil); pu.position.z=.0478; ir.add(pu);
+    const sh=new THREE.Mesh(new THREE.CircleGeometry(.005,8),AM.shine); sh.position.set(.008,.009,.048); ir.add(sh);
+    ir.rotation.set(-o.look[0],o.look[1],0);
+    // pálpebra de cima só na parte de cima do olho: olhos bem abertos, como na arte
+    const lid=new THREE.Mesh(new THREE.SphereGeometry(.0505,18,10,0,Math.PI*2,0,Math.PI*.5),S); lid.rotation.x=o.lid; e.add(lid);
+    eyes.push(ir); });
+  // sobrancelhas grossas
+  [-1,1].forEach(s=>{ const b=box(.07,.017,.024,AM.brow,s*.066,.122,.13,head); b.rotation.set(-.25,0,s*(o.browTilt||-.15)); });
+  // orelhas de abano
+  [-1,1].forEach(s=>{ const ear=ball(.047,S,s*.163,.01,-.005,head); ear.scale.set(.42,1,.78); ball(.02,AM.cavity,s*.172,.01,.003,head).scale.set(.4,1,.8); });
+  // lado quebrado com fios e (no segundo) um parafuso na bochecha
+  const sd=o.curly?-1:1; ball(.032,AM.cavity,sd*.118,-.058,.075,head); wires(head,sd*.13,-.08,.07,6,.09);
+  if(!o.curly){ const bolt=cyl(.013,.013,.014,AM.endo,.118,.03,.108,head); bolt.rotation.set(Math.PI/2,0,-.85); }
+  // cabelo
+  if(o.curly){
+    for(let i=0;i<130;i++){ const th=rnd(0,Math.PI*2), ph=Math.acos(rnd(-.3,1)), x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th);
+      if(z>.45&&y<.62) continue; if(Math.abs(x)>.8&&y<.2) continue;
+      ball(rnd(.03,.044),AM.hair,x*.168,.035+y*.185,z*.168-.012,head); }
+  } else {
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.169,28,14,0,Math.PI*2,0,Math.PI*.4),AM.hair); cap.scale.set(1,1.1,1.03); cap.position.y=.02; cap.rotation.x=-.38; head.add(cap);
+    for(let i=0;i<70;i++){ const th=rnd(0,Math.PI*2), ph=rnd(0,Math.PI*.38), x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th);
+      const v=new THREE.Vector3(x,y,z).applyAxisAngle(new THREE.Vector3(1,0,0),-.38); ball(.016,AM.hair,v.x*.186,.02+v.y*.188,v.z*.174,head); }
+  }
+  return {jaw,eyes};
+}
+const ANIM=[makeAnimatronic({curly:true,look:[.3,.3],lid:-.75,browTilt:-.22,gap:false}),makeAnimatronic({curly:false,look:[.08,.4],lid:-.6,browTilt:-.1,gap:true})];
 ANIM.forEach(a=>scene.add(a));
 const NULLM=makeNull(); NULLM.visible=false; scene.add(NULLM);
 function placeNullAtDoor(){ NULLM.position.set(-3.75,0,.25); NULLM.rotation.set(0,Math.PI/2,0); }
@@ -1678,6 +1728,8 @@ function animAnimatronics(dt,now){
     if(Math.random()<.03) u.head.rotation.set(rnd(-.3,.3),rnd(-.6,.6),rnd(-.35,.35));
     else { u.head.rotation.x*=.95; u.head.rotation.y*=.95; u.head.rotation.z*=.95; }
     u.light.intensity=.6+Math.random()*.35;
+    u.jaw.rotation.x=S.phase==='kill'?.5+Math.sin(now*30)*.08:walking?.1+Math.abs(Math.sin(now*9+i))*.25:.16+Math.sin(now*3+i)*.05;   // maxilar batendo
+    if(Math.random()<.02) u.eyes.forEach(e=>e.rotation.set(-u.look[0]+rnd(-.3,.3),u.look[1]+rnd(-.5,.5),0));
   });
   S.stepT-=dt;
   if(walking&&S.stepT<=0){ S.stepT=.55; A.clank(); if(Math.random()<.55) A.servo(); if(Math.random()<.15) A.laugh(); }
