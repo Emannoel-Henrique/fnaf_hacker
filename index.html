@@ -755,12 +755,39 @@ const A = {
   slam(){ this.noise(.5,.6,160,'lowpass',false); this.tone(70,.4,'sine',.35,-30); this.tone(1200,.18,'square',.03); },
   step(){ this.noise(.15,.35,220,'lowpass',false); },
   breathe(){ this.noise(1.2,.08,700,'bandpass'); },
-  scream(){
-    if(!this.ctx) return; const t=this.ctx.currentTime;
-    [180,233,311,415].forEach((f,i)=>{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sawtooth';
-      o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*2.4,t+.25);o.frequency.linearRampToValueAtTime(f*1.6,t+1.3);
-      g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+1.6);});
-    this.noise(1.5,.6,2500,'bandpass');
+  // canal só dos sustos: distorção + compressor = grito alto e encorpado sem estourar
+  sbus:null,
+  screamBus(){
+    if(this.sbus) return this.sbus; const c=this.ctx;
+    const ws=c.createWaveShaper(), n=2048, curve=new Float32Array(n); for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; curve[i]=Math.tanh(x*5); } ws.curve=curve; ws.oversample='2x';
+    const comp=c.createDynamicsCompressor(); comp.threshold.value=-20; comp.knee.value=6; comp.ratio.value=10; comp.attack.value=.002; comp.release.value=.25;
+    const g=c.createGain(); g.gain.value=2.2; ws.connect(comp); comp.connect(g); g.connect(c.destination);
+    return this.sbus=ws;
+  },
+  lastScream:-1,
+  // 4 tipos de grito sorteados (nunca repete o anterior); kind força um tipo
+  scream(kind){
+    if(!this.ctx) return; const c=this.ctx, t=c.currentTime, bus=this.screamBus();
+    let v=kind; if(v===undefined){ do{ v=Math.random()*4|0; }while(v===this.lastScream); } this.lastScream=v;
+    const dur=rnd(1.5,1.9);
+    const osc=(type,pts,vol,vib=0,vibF=30)=>{ const o=c.createOscillator(), g=c.createGain(); o.type=type; o.frequency.setValueAtTime(pts[0][1],t);
+      pts.slice(1).forEach(([dt,f])=>o.frequency.linearRampToValueAtTime(f,t+dt));
+      if(vib){ const l=c.createOscillator(), lg=c.createGain(); l.frequency.value=vibF; lg.gain.value=vib; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t+dur+.05); }
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.025); g.gain.setValueAtTime(vol,t+dur*.65); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+      o.connect(g); g.connect(bus); o.start(t); o.stop(t+dur+.05); };
+    const nz=(f,q,vol,to)=>{ const s=c.createBufferSource(); s.buffer=this.whiteBuf; const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=q;
+      bp.frequency.setValueAtTime(f,t); bp.frequency.exponentialRampToValueAtTime(to,t+dur); const g=c.createGain(); g.gain.setValueAtTime(vol,t); g.gain.setValueAtTime(vol,t+dur*.6); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+      s.connect(bp); bp.connect(g); g.connect(bus); s.start(t,Math.random()*.4); s.stop(t+dur+.05); };
+    if(v===0){        // grito robótico: acorde de serras subindo com vibrato
+      const b=rnd(160,240); [1,1.26,1.5,2.02].forEach(m=>osc('sawtooth',[[0,b*m],[.2,b*m*2.7],[dur,b*m*1.6]],.2,b*.09,rnd(18,34))); nz(2400,.8,.55,1200);
+    } else if(v===1){ // guincho metálico agudo
+      for(let i=0;i<3;i++) osc('square',[[0,rnd(900,1300)],[.15,rnd(2600,3600)],[.8,rnd(1700,2300)],[dur,rnd(3000,4200)]],.13,rnd(80,160),rnd(40,70)); nz(5000,2,.45,8000);
+    } else if(v===2){ // rugido grave distorcido
+      [68,91,136].forEach(f=>osc('sawtooth',[[0,f*1.7],[.12,f*2.3],[dur,f*.75]],.34,f*.16,9)); nz(520,.6,.85,180); osc('square',[[0,1100],[.3,600]],.08,40,25);
+    } else {          // grito "humano" rasgado
+      const f0=rnd(330,480); [[f0,.28],[f0*1.012,.24],[f0*2,.14]].forEach(([f,vv])=>osc('sawtooth',[[0,f],[.25,f*1.4],[1.2,f*1.18],[dur,f*.85]],vv,f*.05,6.5)); nz(900,3,.5,1300); nz(2700,4,.35,3200);
+    }
+    osc('sine',[[0,95],[.35,38]],.6);          // pancada grave no começo de todos
   },
   bell(){ this.tone(660,.7,'triangle',.14); this.tone(523,1.0,'triangle',.14,0,.45); },
   intercom(){ this.noise(.18,.12,2500,'bandpass'); this.tone(1400,.08,'square',.04,0,.18); },
@@ -1172,10 +1199,10 @@ function makeAnimatronic(o){
     cyl(.018,.016,.08,AM.tan,s*.065,-.03,.02,hand).rotation.z=s*.6;
     return {shoulder,fore,hand}; });
   cyl(.05,.06,.16,AM.endo,0,1.96,0,g); wires(g,0,1.96,.05,6,.14);
-  const head=new THREE.Group(); head.position.y=2.15; g.add(head);
+  const head=new THREE.Group(); head.position.y=HEAD_Y; g.add(head);
   const face=buildHead(head,o);
   const light=new THREE.PointLight(0xffb070,.75,2.4,2); light.position.set(0,0,.5); head.add(light);
-  g.scale.setScalar(.88); g.visible=false;
+  g.scale.setScalar(ANIM_SCALE); g.visible=false;
   g.userData={legs,arms,head,light,jaw:face.jaw,eyes:face.eyes,look:o.look,phase:rnd(0,3)};
   return g;
 }
@@ -1188,54 +1215,89 @@ AM.sclera=new THREE.MeshStandardMaterial({color:0xe4d4b4,roughness:.3});
 AM.iris=new THREE.MeshBasicMaterial({color:0x4b2c17}); AM.pupil=new THREE.MeshBasicMaterial({color:0x060302}); AM.shine=new THREE.MeshBasicMaterial({color:0xfff6e8});
 AM.teeth=new THREE.MeshStandardMaterial({color:0xe2d3b0,roughness:.45}); AM.cavity=new THREE.MeshBasicMaterial({color:0x0b0503});
 AM.brow=new THREE.MeshStandardMaterial({color:0x24160d,roughness:.9});
+const HEAD_R=.18, HEAD_Y=2.24, ANIM_SCALE=.82;
+// relevo do rosto: soma de "calombos" e "fundos" sobre uma esfera
+function bumpAt(n,c,r,amp){ const dx=n.x-c[0],dy=n.y-c[1],dz=n.z-c[2]; return amp*Math.exp(-(dx*dx+dy*dy+dz*dz)/(r*r)); }
+function headPoint(x,y,z){                       // mesma deformação usada no crânio (para posicionar cabelo)
+  let X=x*.94, Y=y*1.17, Z=z;
+  if(Z>0) Z*=.86;
+  if(y>.4) X*=1-.1*(y-.4);
+  if(y<-.1){ const k=Math.min(1,(-.1-y)/.9); X*=1+.13*k; if(z>0) Z*=1+.12*k; }
+  if(y<-.7&&z>.2) Z+=.16*Math.min(1,(-.7-y)/.3)*z;
+  if(z>.25&&y<-.25&&y>-.72){ const k=1-Math.abs(y+.48)/.24; Y+=.5*X*X*Math.max(0,k); }   // cantos da boca sobem: sorriso
+  return [X,Y,Z];
+}
+function shapeHead(geo){
+  const pos=geo.attributes.position, v=new THREE.Vector3();
+  for(let i=0;i<pos.count;i++){
+    v.fromBufferAttribute(pos,i).normalize(); let d=0;
+    [-1,1].forEach(s=>{ d+=bumpAt(v,[s*.6,-.12,.6],.3,.11);      // maçãs do rosto
+                        d+=bumpAt(v,[s*.34,.15,.86],.2,-.1);     // fundo dos olhos
+                        d+=bumpAt(v,[s*.62,-.55,.4],.28,.06); }); // maxilar marcado
+    d+=bumpAt(v,[0,.36,.88],.3,.05)+bumpAt(v,[.32,.36,.82],.2,.045)+bumpAt(v,[-.32,.36,.82],.2,.045);  // testa / sobrancelha
+    const p=headPoint(v.x*(1+d),v.y*(1+d),v.z*(1+d)); pos.setXYZ(i,p[0],p[1],p[2]);
+  }
+  geo.computeVertexNormals(); return geo;
+}
+function hairCloud(U,count,rad,filter,lift){
+  const geo=new THREE.SphereGeometry(1,8,6), inst=new THREE.InstancedMesh(geo,AM.hair,count), m=new THREE.Matrix4(), q=new THREE.Quaternion();
+  let n=0, tries=0;
+  while(n<count&&tries<count*20){ tries++;
+    const th=rnd(0,Math.PI*2), y=rnd(-1,1), r=Math.sqrt(1-y*y), x=r*Math.cos(th), z=r*Math.sin(th);
+    if(!filter(x,y,z)) continue;
+    const p=headPoint(x,y,z), up=lift(x,y,z), s=rad*rnd(.75,1.25);
+    m.compose(new THREE.Vector3(p[0]*(1+up.out),p[1]*(1+up.out)+up.y,p[2]*(1+up.out)),q,new THREE.Vector3(s,s,s)); inst.setMatrixAt(n++,m);
+  }
+  inst.count=n; U.add(inst); return inst;
+}
 function buildHead(head,o){
-  const S=AM.skin;
-  const skull=new THREE.Mesh(new THREE.SphereGeometry(.16,30,22),S); skull.scale.set(1,1.1,1.02); skull.position.y=.02; head.add(skull);
-  [-1,1].forEach(s=>{ const c=ball(.05,S,s*.082,-.035,.092,head); c.scale.set(1,.8,.8); });          // bochechas do sorriso
-  // boca aberta: cavidade escura + dentes de cima
-  const cav=new THREE.Mesh(new THREE.SphereGeometry(1,18,10),AM.cavity); cav.scale.set(.078,.042,.05); cav.position.set(0,-.07,.1); head.add(cav);
-  for(let i=0;i<8;i++){ if(o.gap&&i===4) continue; const a=(i-3.5)*.14, t=box(.018,.026,.012,AM.teeth,Math.sin(a)*.135,-.056,Math.cos(a)*.135-.002,head); t.rotation.y=a; }
-  const lip=new THREE.Mesh(new THREE.TorusGeometry(.072,.011,6,20,Math.PI),S); lip.rotation.set(-.25,0,Math.PI); lip.scale.set(1,.42,1); lip.position.set(0,-.038,.122); head.add(lip);
-  // maxilar com dentes de baixo (abre e fecha)
-  const jaw=new THREE.Group(); jaw.position.set(0,-.06,-.01); head.add(jaw);
-  const jm=new THREE.Mesh(new THREE.SphereGeometry(.122,24,12,0,Math.PI*2,Math.PI/2,Math.PI/2),S); jm.scale.set(1,.78,1.1); jaw.add(jm);
-  for(let i=0;i<7;i++){ const a=(i-3)*.14, t=box(.016,.02,.011,AM.teeth,Math.sin(a)*.118,-.014,Math.cos(a)*.118+.01,jaw); t.rotation.y=a; }
-  ball(.04,S,0,-.075,.09,jaw).scale.set(1.3,.7,.9);                                                 // queixo
-  // nariz largo
-  ball(.036,S,0,.002,.163,head).scale.set(1.15,.85,1.05); box(.03,.065,.03,S,0,.048,.152,head);
-  [-1,1].forEach(s=>ball(.009,AM.cavity,s*.015,-.02,.18,head));
-  // olhos grandes, claros, olhando de lado (como na arte)
+  const S=AM.skin, U=new THREE.Group(); U.scale.setScalar(HEAD_R); head.add(U);
+  const W=(x,y,z)=>[x*HEAD_R,y*HEAD_R,z*HEAD_R];       // unidades do rosto -> metros
+  // crânio + rosto de cima (até o lábio de cima)
+  U.add(new THREE.Mesh(shapeHead(new THREE.SphereGeometry(1,64,44,0,Math.PI*2,0,Math.PI*.66)),S));
+  // boca aberta: fundo escuro
+  ball(1,AM.cavity,0,-.66,.2,U).scale.set(.66,.36,.48);
+  // dentes de cima: grandes, quadrados, um pouco tortos (o segundo tem falhas)
+  for(let i=0;i<9;i++){ if(o.gap&&(i===3||i===6)) continue;
+    const a=(i-4)*.165, x=Math.sin(a)*.63, z=Math.cos(a)*.74, t=box(.14,.2,.08,AM.teeth,x,-.64+.5*x*x,z,U); t.rotation.set(rnd(-.08,.08),a,rnd(-.1,.1)); }
+  // maxilar: abre e fecha (pivô perto das orelhas)
+  const jaw=new THREE.Group(); jaw.position.set(0,-.35,-.2); U.add(jaw);
+  const jm=new THREE.Mesh(shapeHead(new THREE.SphereGeometry(1,64,20,0,Math.PI*2,Math.PI*.63,Math.PI*.37)),S); jm.position.set(0,.35,.2); jaw.add(jm);
+  for(let i=0;i<8;i++){ if(o.gap&&i===2) continue;
+    const a=(i-3.5)*.165, x=Math.sin(a)*.57, z=Math.cos(a)*.7, t=box(.12,.15,.07,AM.teeth,x,-.55+.35+.45*x*x,z+.2,jaw); t.rotation.set(rnd(-.1,.1),a,rnd(-.12,.12)); }
+  // nariz grande e arredondado
+  ball(1,S,0,-.12,.9,U).scale.set(.25,.21,.2);
+  box(.17,.42,.14,S,0,.1,.83,U);
+  [-1,1].forEach(s=>{ ball(1,S,s*.15,-.17,.83,U).scale.set(.12,.1,.11); ball(.05,AM.cavity,s*.085,-.27,.9,U); });
+  // olhos enormes, claros, de pálpebra pesada, olhando para cima/de lado
   const eyes=[];
-  [-1,1].forEach(s=>{ const e=new THREE.Group(); e.position.set(s*.064,.058,.108); head.add(e);
-    ball(.047,AM.sclera,0,0,0,e);
+  [-1,1].forEach(s=>{ const e=new THREE.Group(); e.position.set(s*.34,.15,.64); U.add(e);
+    ball(.23,AM.sclera,0,0,0,e);
     const ir=new THREE.Group(); e.add(ir);
-    const iris=new THREE.Mesh(new THREE.CircleGeometry(.022,22),AM.iris); iris.position.z=.0475; ir.add(iris);
-    const pu=new THREE.Mesh(new THREE.CircleGeometry(.01,14),AM.pupil); pu.position.z=.0478; ir.add(pu);
-    const sh=new THREE.Mesh(new THREE.CircleGeometry(.005,8),AM.shine); sh.position.set(.008,.009,.048); ir.add(sh);
+    const iris=new THREE.Mesh(new THREE.CircleGeometry(.105,22),AM.iris); iris.position.z=.232; ir.add(iris);
+    const pu=new THREE.Mesh(new THREE.CircleGeometry(.048,14),AM.pupil); pu.position.z=.2325; ir.add(pu);
+    const sh=new THREE.Mesh(new THREE.CircleGeometry(.024,8),AM.shine); sh.position.set(.04,.045,.234); ir.add(sh);
     ir.rotation.set(-o.look[0],o.look[1],0);
-    // pálpebra de cima só na parte de cima do olho: olhos bem abertos, como na arte
-    const lid=new THREE.Mesh(new THREE.SphereGeometry(.0505,18,10,0,Math.PI*2,0,Math.PI*.5),S); lid.rotation.x=o.lid; e.add(lid);
+    const lid=new THREE.Mesh(new THREE.SphereGeometry(.245,22,12,0,Math.PI*2,0,Math.PI*.5),S); lid.rotation.x=o.lid; e.add(lid);              // pálpebra de cima
+    const low=new THREE.Mesh(new THREE.SphereGeometry(.24,22,8,0,Math.PI*2,Math.PI*.74,Math.PI*.26),S); low.rotation.x=-.35; e.add(low);    // olheira de baixo
     eyes.push(ir); });
-  // sobrancelhas grossas
-  [-1,1].forEach(s=>{ const b=box(.07,.017,.024,AM.brow,s*.066,.122,.13,head); b.rotation.set(-.25,0,s*(o.browTilt||-.15)); });
-  // orelhas de abano
-  [-1,1].forEach(s=>{ const ear=ball(.047,S,s*.163,.01,-.005,head); ear.scale.set(.42,1,.78); ball(.02,AM.cavity,s*.172,.01,.003,head).scale.set(.4,1,.8); });
-  // lado quebrado com fios e (no segundo) um parafuso na bochecha
-  const sd=o.curly?-1:1; ball(.032,AM.cavity,sd*.118,-.058,.075,head); wires(head,sd*.13,-.08,.07,6,.09);
-  if(!o.curly){ const bolt=cyl(.013,.013,.014,AM.endo,.118,.03,.108,head); bolt.rotation.set(Math.PI/2,0,-.85); }
+  // sobrancelhas grossas e arqueadas
+  [-1,1].forEach(s=>{ const b1=box(.24,.095,.13,AM.brow,s*.25,.45,.78,U); b1.rotation.set(-.35,s*.15,s*(o.browTilt-.05));
+                      const b2=box(.2,.085,.12,AM.brow,s*.46,.43,.66,U); b2.rotation.set(-.3,s*.55,s*(o.browTilt+.25)); });
+  // orelhas grandes de abano
+  [-1,1].forEach(s=>{ ball(1,S,s*.93,.0,-.05,U).scale.set(.13,.31,.23); ball(1,AM.cavity,s*.99,.0,-.02,U).scale.set(.05,.17,.12); });
+  // lados do maxilar quebrados com fios aparecendo (os dois têm), parafuso na têmpora do segundo
+  [-1,1].forEach(s=>{ if(!o.curly&&s<0) return; ball(1,AM.cavity,s*.74,-.43,.42,U).scale.set(.16,.14,.1); wires(head,...W(s*.8,-.5,.38),7,.09); });
+  if(!o.curly){ const bolt=cyl(.014,.014,.016,AM.endo,...W(.78,.22,.52),head); bolt.rotation.set(Math.PI/2,0,-.9); }
   // cabelo
   if(o.curly){
-    for(let i=0;i<130;i++){ const th=rnd(0,Math.PI*2), ph=Math.acos(rnd(-.3,1)), x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th);
-      if(z>.45&&y<.62) continue; if(Math.abs(x)>.8&&y<.2) continue;
-      ball(rnd(.03,.044),AM.hair,x*.168,.035+y*.185,z*.168-.012,head); }
+    hairCloud(U,340,.19,(x,y,z)=>!(z>.38&&y<.62)&&y>-.05&&!(Math.abs(x)>.75&&y<.25),(x,y,z)=>({out:.02,y:y>.45?.22*(y-.45)/.55+.05:0}));
   } else {
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(.169,28,14,0,Math.PI*2,0,Math.PI*.4),AM.hair); cap.scale.set(1,1.1,1.03); cap.position.y=.02; cap.rotation.x=-.38; head.add(cap);
-    for(let i=0;i<70;i++){ const th=rnd(0,Math.PI*2), ph=rnd(0,Math.PI*.38), x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th);
-      const v=new THREE.Vector3(x,y,z).applyAxisAngle(new THREE.Vector3(1,0,0),-.38); ball(.016,AM.hair,v.x*.186,.02+v.y*.188,v.z*.174,head); }
+    hairCloud(U,520,.085,(x,y,z)=>!(z>.36&&y<.6)&&(y>.42||(y>-.05&&z<.3))&&!(Math.abs(x)>.86&&y<.3),()=>({out:.01,y:0}));
   }
   return {jaw,eyes};
 }
-const ANIM=[makeAnimatronic({curly:true,look:[.3,.3],lid:-.75,browTilt:-.22,gap:false}),makeAnimatronic({curly:false,look:[.08,.4],lid:-.6,browTilt:-.1,gap:true})];
+const ANIM=[makeAnimatronic({curly:true,look:[.38,.32],lid:-.62,browTilt:-.2,gap:false}),makeAnimatronic({curly:false,look:[.12,.42],lid:-.52,browTilt:-.08,gap:true})];
 ANIM.forEach(a=>scene.add(a));
 const NULLM=makeNull(); NULLM.visible=false; scene.add(NULLM);
 function placeNullAtDoor(){ NULLM.position.set(-3.75,0,.25); NULLM.rotation.set(0,Math.PI/2,0); }
@@ -1728,7 +1790,7 @@ function animAnimatronics(dt,now){
     if(Math.random()<.03) u.head.rotation.set(rnd(-.3,.3),rnd(-.6,.6),rnd(-.35,.35));
     else { u.head.rotation.x*=.95; u.head.rotation.y*=.95; u.head.rotation.z*=.95; }
     u.light.intensity=.6+Math.random()*.35;
-    u.jaw.rotation.x=S.phase==='kill'?.5+Math.sin(now*30)*.08:walking?.1+Math.abs(Math.sin(now*9+i))*.25:.16+Math.sin(now*3+i)*.05;   // maxilar batendo
+    u.jaw.rotation.x=S.phase==='kill'?.62+Math.sin(now*30)*.08:walking?.22+Math.abs(Math.sin(now*9+i))*.25:.32+Math.sin(now*3+i)*.05;   // maxilar batendo
     if(Math.random()<.02) u.eyes.forEach(e=>e.rotation.set(-u.look[0]+rnd(-.3,.3),u.look[1]+rnd(-.5,.5),0));
   });
   S.stepT-=dt;
@@ -1762,7 +1824,7 @@ function animAnimatronics(dt,now){
   } else if(S.phase==='kill'){
     S.t2+=dt; const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
     const side=new THREE.Vector3(-dir.z,0,dir.x).normalize();
-    ANIM.forEach((a,i)=>{ const tg=camera.position.clone().add(dir.clone().multiplyScalar(.62)).add(side.clone().multiplyScalar(i?.24:-.24)); tg.y=camera.position.y-2.15*.88;
+    ANIM.forEach((a,i)=>{ const tg=camera.position.clone().add(dir.clone().multiplyScalar(.62)).add(side.clone().multiplyScalar(i?.24:-.24)); tg.y=camera.position.y-HEAD_Y*ANIM_SCALE;
       a.position.lerp(tg,Math.min(1,dt*9)); a.lookAt(camera.position.x,a.position.y,camera.position.z); a.position.x+=rnd(-.02,.02);
       a.userData.arms.forEach(ar=>{ ar.shoulder.rotation.set(-1.6+rnd(-.2,.2),0,0); }); });
     if(S.t2>1.9&&!S.ended){ S.ended=true; document.body.classList.remove('shake'); $('glitch').style.opacity=0; A.musicBoxOff();
@@ -1772,7 +1834,7 @@ function animAnimatronics(dt,now){
 function killByAnimatronics(){
   const S=G.anim; S.phase='kill'; S.t2=0; G.over=true; G.running=false;
   if(G.tabletOpen) closeTablet(); vbox.classList.add('hidden');
-  A.scream(); A.laugh(); A.crash(); flash(.9); document.body.classList.add('shake');
+  A.scream(); setTimeout(()=>A.scream(),170); A.laugh(); A.crash(); flash(.9); document.body.classList.add('shake');   // os dois gritam, cada um de um jeito
   $('glitch').textContent='HORA DO SHOW'; $('glitch').style.opacity=1;
 }
 
