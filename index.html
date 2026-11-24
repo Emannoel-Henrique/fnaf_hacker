@@ -1,0 +1,1962 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Turno da Noite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#040507; --panel:rgba(8,13,12,.94); --panel2:#0d1513; --ink:#dcf7e6; --muted:#7f9c8c;
+  --green:#57ff9a; --red:#ff3047; --amber:#ffb547; --blue:#62c8ff; --line:#1f2e28;
+  --mono:'VT323',ui-monospace,monospace; --sans:'Chakra Petch',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+#scene{position:fixed;inset:0}
+#scene canvas{display:block;width:100%;height:100%}
+.hidden{display:none!important}
+
+/* HUD */
+#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px;pointer-events:none;z-index:5}
+.hudbox{background:rgba(0,0,0,.55);border:1px solid var(--line);border-radius:8px;padding:8px 12px;backdrop-filter:blur(3px)}
+#clock{font-family:var(--mono);font-size:44px;line-height:.9;color:var(--ink);text-shadow:0 0 12px rgba(87,255,154,.35)}
+#clock small{display:block;font-family:var(--sans);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.meter{width:170px}
+.meter label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.meter label b{color:var(--ink);font-weight:600;letter-spacing:0}
+.bar{height:8px;border-radius:4px;background:#111b17;overflow:hidden;margin:4px 0 8px}
+.bar i{display:block;height:100%;width:100%;background:var(--green);transition:width .3s,background .3s}
+#bottom{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;z-index:5}
+.big{background:rgba(5,10,8,.82);border:1px solid #2a4a3a;border-radius:10px;padding:12px 18px;font-weight:600;letter-spacing:.06em;display:flex;align-items:center;gap:8px;transition:transform .1s,border-color .2s,background .2s}
+.big:hover{border-color:var(--green);background:rgba(16,40,28,.9)}
+.big:active{transform:scale(.97)}
+.big kbd{font-family:var(--mono);font-size:16px;background:#14251d;border:1px solid #2a4a3a;border-radius:4px;padding:0 6px;color:var(--muted)}
+#btnFirewall{border-color:#5a1d25}
+#btnFirewall:hover{border-color:var(--red);background:rgba(60,10,16,.9)}
+#btnFirewall.cool{opacity:.5}
+
+/* door warning */
+#doorWarn{position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:30;background:rgba(40,0,6,.9);border:1px solid var(--red);border-radius:10px;padding:10px 18px;text-align:center;box-shadow:0 0 40px rgba(255,48,71,.35);animation:pulse .6s infinite alternate}
+#doorWarn b{display:block;font-size:20px;letter-spacing:.04em;color:#ffd5da}
+#doorWarn span{font-size:13px;color:#ffb3bd}
+@keyframes pulse{from{box-shadow:0 0 20px rgba(255,48,71,.25)}to{box-shadow:0 0 60px rgba(255,48,71,.6)}}
+
+/* toasts */
+#toasts{position:fixed;left:50%;top:170px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;z-index:40;pointer-events:none;width:min(560px,calc(100% - 32px))}
+.toast{background:rgba(6,12,10,.92);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:6px;padding:8px 14px;font-size:14px;animation:tin .25s ease-out;max-width:100%}
+.toast.red{border-left-color:var(--red)}.toast.amber{border-left-color:var(--amber)}.toast.blue{border-left-color:var(--blue)}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* TABLET */
+#tablet{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:70px 16px 16px;background:rgba(0,0,0,.55);transition:opacity .2s}
+#tablet.closed{opacity:0;pointer-events:none}
+#tabletIn{width:min(1180px,100%);height:min(720px,100%);background:var(--panel);border:1px solid #23392f;border-radius:14px;display:grid;grid-template-columns:330px 1fr;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 60px rgba(87,255,154,.03);transform:translateY(0);transition:transform .25s}
+#tablet.closed #tabletIn{transform:translateY(40px)}
+#side{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0}
+#main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.ttl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+#alerts{display:flex;flex-direction:column;gap:6px}
+.al{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;text-align:left;background:#1a1208;border:1px solid #4a3412;border-radius:8px;padding:7px 9px;font-size:13px}
+.al.comp{background:#1c0a0d;border-color:#5a1d25}
+.al .ic{font-size:18px}
+.al small{display:block;color:var(--muted);font-size:11px}
+.al .tm{font-family:var(--mono);font-size:22px;color:var(--amber)}
+.al.comp .tm{color:var(--red);font-size:14px;font-family:var(--sans);font-weight:600}
+.noal{font-size:13px;color:var(--muted);padding:6px 2px}
+#map{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,74px);gap:5px;grid-template-areas:"quarto quarto corredor escritorio" "sala sala corredor seguranca" "cozinha lavanderia entrada garagem"}
+.rm{position:relative;background:#0c1512;border:1px solid #1e3129;border-radius:6px;padding:6px;text-align:left;font-size:12px;line-height:1.15;display:flex;flex-direction:column;justify-content:space-between;transition:border-color .15s,background .15s}
+.rm:hover{border-color:#3d6b55}
+.rm.on{border-color:var(--green);background:#11261c;box-shadow:inset 0 0 0 1px rgba(87,255,154,.25)}
+.rm .cam{font-family:var(--mono);font-size:15px;color:var(--muted)}
+.rm .dots{display:flex;gap:4px;flex-wrap:wrap}
+.dot{width:9px;height:9px;border-radius:50%;background:#3b5a4b}
+.dot.alert{background:var(--amber);animation:blink .5s infinite alternate}
+.dot.compromised{background:var(--red);animation:blink .35s infinite alternate}
+.dot.secured,.dot.cleared{background:var(--green)}
+@keyframes blink{from{opacity:1}to{opacity:.25}}
+.rm.you{background:#170d10;border-color:#3a1c22;cursor:default}
+.rm.you .cam{color:#ff8a98}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+#feedWrap{position:relative;background:#000;border-bottom:1px solid var(--line);flex:0 0 auto}
+#feed{display:block;width:100%;aspect-ratio:640/368;max-height:44vh;object-fit:contain;background:#000}
+body.tabopen #toasts{top:8px;gap:4px}
+body.tabopen #toasts .toast:nth-child(n+3){display:none}
+body.tabopen .toast{padding:5px 12px;font-size:13px}
+body.vopen #toasts,body.vopen #hint{display:none}
+body.vopen #bottom{opacity:.25;pointer-events:none}
+#closeTab{position:absolute;right:10px;top:10px;background:rgba(0,0,0,.6);border:1px solid #2a4a3a;border-radius:8px;padding:6px 10px;font-size:13px}
+#devArea{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+#devTabs{display:flex;gap:6px;flex-wrap:wrap}
+.dt{background:#0c1512;border:1px solid #1e3129;border-radius:8px;padding:6px 10px;font-size:13px;display:flex;gap:6px;align-items:center}
+.dt.on{border-color:var(--green);background:#11261c}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.dhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dhead h3{margin:0;font-size:18px}
+.badge{font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid #2d4a3d;border-radius:20px;padding:2px 8px;color:var(--muted)}
+.badge.alert{border-color:var(--amber);color:var(--amber)}
+.badge.compromised{border-color:var(--red);color:var(--red)}
+.badge.secured,.badge.cleared{border-color:var(--green);color:var(--green)}
+.alertline{margin:10px 0 6px;font-weight:600;color:#ffd79a}
+.alertline.red{color:#ff9aa6}
+.logs{font-family:var(--mono);font-size:18px;line-height:1.15;background:#030806;border:1px solid #14231c;border-radius:6px;padding:8px 10px;color:#9fe8bd;white-space:pre-wrap}
+.q{margin:12px 0 8px;font-weight:600}
+.q small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.opt{text-align:left;background:#0e1916;border:1px solid #24392f;border-radius:8px;padding:9px 11px;font-size:14px;line-height:1.25;transition:border-color .15s,background .15s}
+.opt:hover:not(:disabled){border-color:var(--green);background:#12241b}
+.opt:disabled{opacity:.38;cursor:not-allowed;text-decoration:line-through}
+.steps{display:flex;gap:6px;margin-top:10px}
+.steps i{flex:1;height:4px;border-radius:2px;background:#1b2b24}
+.steps i.ok{background:var(--green)}.steps i.cur{background:var(--amber)}
+.fb{font-size:14px;border-radius:8px;padding:8px 11px;margin-top:8px}
+.fb.bad{background:#200c10;border:1px solid #5a1d25;color:#ffc2ca}
+.fb.good{background:#0b1f15;border:1px solid #1f5a3b;color:#bff5d4}
+.sum{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin-top:8px}
+.sum dt{color:var(--muted)}.sum dd{margin:0}
+.muted{color:var(--muted);font-size:14px}
+
+/* overlays */
+.screen{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(ellipse at center,rgba(10,18,15,.78),rgba(0,0,0,.95));overflow:auto}
+.sbox{width:min(760px,100%);margin:auto}
+.kicker{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--green)}
+h1{font-family:var(--mono);font-weight:400;font-size:clamp(52px,10vw,96px);line-height:.85;margin:8px 0 6px;color:#eafff2;text-shadow:0 0 24px rgba(87,255,154,.3),3px 0 0 rgba(255,48,71,.35)}
+h1 em{font-style:normal;color:var(--red);text-shadow:0 0 24px rgba(255,48,71,.5)}
+.lead{color:#b9d6c6;font-size:16px;line-height:1.5;margin:0 0 16px}
+.brief{background:rgba(6,12,10,.9);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:20px;line-height:1.2;color:#a9efc7;min-height:120px;white-space:pre-wrap}
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:14px 0}
+.ctrls div{background:rgba(6,12,10,.8);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;color:#b9d6c6}
+.ctrls b{display:block;color:var(--ink);font-size:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.go{background:var(--green);color:#03150b;border:0;border-radius:10px;padding:14px 26px;font-weight:700;font-size:17px;letter-spacing:.05em;box-shadow:0 0 30px rgba(87,255,154,.3)}
+.go:hover{filter:brightness(1.1)}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:#b9d6c6;cursor:pointer}
+.chk input{accent-color:var(--green);width:18px;height:18px}
+.duo{font-size:13px;color:var(--muted);margin-top:16px}
+#report .sbox{width:min(1000px,100%)}
+
+/* RECEPÇÃO / VISITANTES */
+#visitor{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:35;width:min(450px,calc(100% - 32px));max-height:calc(100% - 110px);overflow:auto;background:rgba(8,12,11,.97);border:1px solid #3a4f45;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:16px;animation:tin .25s ease-out}
+#visitor .vhead{display:flex;align-items:center;gap:12px}
+#vFace{width:68px;height:68px;border-radius:10px;border:1px solid #2a4a3a;background:#000;flex:0 0 auto}
+#visitor h3{margin:0;font-size:19px}
+#visitor .claim{font-size:13px;color:var(--muted)}
+.pauseTag{display:inline-block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);border:1px solid #23506a;border-radius:20px;padding:2px 9px;margin-bottom:10px}
+.speech{background:#101a16;border:1px solid #24392f;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:16px;line-height:1.5}
+.speech p{margin:0 0 8px}.speech p:last-child{margin:0}
+.speech .verif{background:#0d1d27;border:1px solid #23506a;border-radius:8px;padding:8px 10px;color:#bfe6ff;font-size:14px;margin-top:10px}
+.evid{font-size:14px;margin:8px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.evid li{background:#0c1512;border:1px solid #1e3129;border-radius:8px;padding:7px 10px;color:#b9d6c6}
+.vbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.vbtn{border-radius:10px;padding:12px;font-weight:700;border:1px solid;font-size:15px;transition:filter .15s}
+.vbtn:hover:not(:disabled){filter:brightness(1.25)}
+.vbtn.in{background:#0f2a1c;border-color:#2c7a50;color:#bff5d4}
+.vbtn.out{background:#2a0d12;border-color:#7a2c37;color:#ffc2ca}
+.vbtn.ver{grid-column:1/-1;background:#0d1d27;border-color:#23506a;color:#bfe6ff;font-weight:600}
+.vbtn:disabled{opacity:.4;cursor:not-allowed}
+.vbtn.go2{grid-column:1/-1;background:var(--green);color:#03150b;border-color:var(--green)}
+@media (max-width:860px){#visitor{top:auto;bottom:10px;right:10px;transform:none;max-height:62vh;width:calc(100% - 20px)}}
+.creatures{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:26px}
+.creatures canvas{width:100%;aspect-ratio:4/3;display:block;border-radius:8px;border:1px solid #2a1418;background:#000;margin-bottom:10px}
+.flags{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.flags .cardL h3{font-size:17px}
+@media (max-width:860px){.flags{grid-template-columns:1fr}}
+
+/* LANDING PAGE (tela inicial) */
+#start.lp{display:block;padding:0;background:none;scroll-behavior:smooth}
+.hero{min-height:100vh;display:flex;flex-direction:column;padding:20px 24px 28px;background:radial-gradient(ellipse at 50% 45%,rgba(4,8,7,.35),rgba(2,4,3,.88) 75%),linear-gradient(180deg,transparent 65%,#040706)}
+.lpnav{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);max-width:1120px;width:100%;margin:0 auto}
+.lpnav .logo{font-family:var(--mono);font-size:26px;letter-spacing:.06em;color:var(--ink)}
+.lpnav .logo i{color:var(--red);font-style:normal}
+.heroIn{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:1120px;width:100%;margin:0 auto;padding:40px 0}
+.hero h1{font-size:clamp(64px,13vw,168px);margin:10px 0 14px}
+.lead.herolead{font-size:clamp(17px,2vw,22px);max-width:780px}
+.heroStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:860px;margin-top:20px}
+.heroStats div{background:rgba(6,12,10,.75);border:1px solid var(--line);border-radius:10px;padding:12px 14px;backdrop-filter:blur(3px)}
+.heroStats b{display:block;font-family:var(--mono);font-size:46px;font-weight:400;line-height:1;color:var(--green)}
+.heroStats span{font-size:13px;color:#b9d6c6}
+.scrollcue{align-self:center;color:var(--muted);text-decoration:none;font-size:14px;letter-spacing:.08em;animation:bob 1.6s ease-in-out infinite}
+.scrollcue:hover{color:var(--green)}
+@keyframes bob{50%{transform:translateY(6px)}}
+.lpsec{background:#040706;padding:80px 24px;border-top:1px solid #101b16}
+.lpsec.alt{background:#060b09}
+.lpin{max-width:1120px;margin:0 auto}
+.lpsec h2{font-size:clamp(28px,4vw,46px);line-height:1.08;margin:8px 0 14px}
+.lpsec p{color:#b9d6c6;font-size:16px;line-height:1.6;max-width:68ch}
+.lpsec p b{color:var(--ink)}
+.subh{margin:34px 0 4px;font-size:20px}
+.two{display:grid;grid-template-columns:1.05fr 1fr;gap:36px;align-items:center}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:20px}
+.cards.three{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.cardL{background:rgba(10,18,15,.9);border:1px solid var(--line);border-radius:12px;padding:16px 18px;transition:border-color .2s,transform .2s}
+.cardL:hover{border-color:#2f5444;transform:translateY(-2px)}
+.cardL .n{font-family:var(--mono);font-size:22px;color:var(--muted)}
+.cardL .ico{font-size:32px;margin:6px 0}
+.cardL h3{margin:2px 0 6px;font-size:19px}
+.cardL p{font-size:14px;margin:0}
+.cardL kbd,.lpsec p kbd{font-family:var(--mono);font-size:16px;background:#14251d;border:1px solid #2a4a3a;border-radius:4px;padding:0 6px;color:var(--ink)}
+.cardL ul{margin:10px 0 0;padding-left:18px;color:#b9d6c6;font-size:14px;line-height:1.7}
+.formula{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:20px 0 4px}
+.formula span{border-radius:10px;padding:10px 16px;font-weight:600;border:1px solid}
+.formula .v{color:var(--amber);border-color:#5a4214;background:#1a1208}
+.formula .a{color:#ff8a98;border-color:#5a1d25;background:#1c0a0d}
+.formula .i{color:var(--ink);border-color:#2b4a3c;background:#0d1a14}
+.formula b{font-family:var(--mono);font-size:32px;font-weight:400;color:var(--muted)}
+.devgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:20px}
+.devc{background:rgba(10,18,15,.9);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+.devc .e{font-size:30px;line-height:1}
+.devc b{display:block;font-size:15px}
+.devc small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.devc .pr{display:inline-block;margin-top:5px;font-size:11px;letter-spacing:.06em;border:1px solid #2d4a3d;border-radius:20px;padding:1px 8px;color:#9fe8bd}
+.path{margin:16px 0 8px;padding:0}
+.path li{list-style:none;position:relative;padding:0 0 18px 34px;color:#b9d6c6;font-size:15px}
+.path li::before{content:"";position:absolute;left:7px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber)}
+.path li::after{content:"";position:absolute;left:12px;top:20px;bottom:2px;width:2px;background:#2a3a33}
+.path li:last-child::after{display:none}
+.path li:last-child::before{background:var(--red);box-shadow:0 0 14px var(--red)}
+.path b{color:var(--ink);display:block}
+#nullCanvas{width:100%;max-width:340px;aspect-ratio:3/4;border:1px solid #3a1820;border-radius:12px;background:#000;display:block;margin:0 auto;box-shadow:0 0 60px rgba(255,48,71,.12);animation:flick 4s infinite}
+@keyframes flick{0%,90%,100%{opacity:1}91%{opacity:.35}93%{opacity:1}95%{opacity:.6}96%{opacity:1}}
+.levels{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.levels span{border:1px solid currentColor;border-radius:20px;padding:6px 12px;font-size:14px}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:12px}
+.keys.pts{grid-template-columns:1fr;margin-top:0}
+.keys div{display:flex;gap:12px;align-items:center;background:rgba(10,18,15,.9);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;color:#b9d6c6}
+.keys kbd{font-family:var(--mono);font-size:20px;background:#14251d;border:1px solid #2a4a3a;border-radius:5px;padding:1px 8px;color:var(--green);min-width:62px;text-align:center}
+.cta{text-align:center;padding:100px 24px 80px;background:radial-gradient(ellipse at 50% 0%,rgba(87,255,154,.09),transparent 60%),#040706}
+.cta h2{font-size:clamp(34px,5.5vw,62px)}
+.cta .go{display:block;margin:26px auto 16px;font-size:22px;padding:20px 44px}
+.cta .chk{justify-content:center}
+@media (max-width:860px){
+  .two{grid-template-columns:1fr;gap:24px}
+  .heroStats{grid-template-columns:repeat(2,1fr)}
+  .heroStats b{font-size:38px}
+  .lpsec{padding:56px 16px}
+  .hero{padding:16px}
+  .lpnav span:last-child{display:none}
+  .cta .go{width:100%;font-size:19px;padding:18px 20px}
+}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:14px 0}
+.stat{background:rgba(6,12,10,.9);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.stat b{font-family:var(--mono);font-size:38px;font-weight:400;line-height:1}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(6,12,10,.9)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:760px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #15221c;vertical-align:top}
+th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td .ok{color:var(--green)}td .no{color:var(--red)}td .warn{color:var(--amber)}
+.learn{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.learn div{background:rgba(6,12,10,.9);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;color:#b9d6c6}
+.learn b{color:var(--ink)}
+#flash{position:fixed;inset:0;z-index:45;pointer-events:none;background:radial-gradient(circle,rgba(255,0,30,.0),rgba(255,0,30,.55));opacity:0;transition:opacity .15s}
+#glitch{position:fixed;inset:0;z-index:46;pointer-events:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:clamp(40px,9vw,110px);color:#fff;text-shadow:4px 0 var(--red),-4px 0 var(--blue);opacity:0}
+#pauseScr .sbox{text-align:center}
+body.shake #scene{animation:shake .08s infinite}
+@keyframes shake{0%{transform:translate(0,0)}25%{transform:translate(-8px,5px)}50%{transform:translate(7px,-6px)}75%{transform:translate(-5px,-4px)}100%{transform:translate(6px,6px)}}
+#hint{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);font-size:13px;color:var(--muted);z-index:4;pointer-events:none;text-align:center;transition:opacity 1s}
+
+@media (max-width:860px){
+  #tablet{padding:58px 8px 8px}
+  #tabletIn{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:100%}
+  #side{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}
+  #map{grid-template-rows:repeat(3,58px)}
+  #clock{font-size:34px}
+  .meter{width:120px}
+  #hud{padding:8px}
+  .big{padding:10px 12px;font-size:14px}
+  .big kbd{display:none}
+  .learn{grid-template-columns:1fr}
+  #doorWarn{top:80px;width:calc(100% - 32px)}
+}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="hud" class="hidden">
+  <div class="hudbox"><div id="clock">00:00<small>Plantão noturno</small></div></div>
+  <div class="hudbox">
+    <div class="meter"><label>Energia <b id="enTxt">100%</b></label><div class="bar"><i id="enBar"></i></div></div>
+    <div class="meter"><label>Segurança <b id="scTxt">0 pts</b></label><div class="bar"><i id="scBar" style="width:0;background:var(--blue)"></i></div></div>
+    <div class="meter" style="margin-top:-2px"><label>Alertas ativos <b id="alTxt">0</b></label></div>
+  </div>
+</div>
+<div id="bottom" class="hidden">
+  <button class="big" id="btnCams">📷 Câmeras <kbd>Espaço</kbd></button>
+  <button class="big" id="btnFirewall">🛡️ Firewall da porta <kbd>F</kbd></button>
+</div>
+<div id="hint" class="hidden">Mova o mouse para olhar ao redor · clique no monitor para abrir as câmeras</div>
+<div id="doorWarn" class="hidden"><b>⚠ O NULL ESTÁ NA PORTA</b><span>Ative o firewall agora! <span id="doorT">9</span>s</span></div>
+<div id="visitor" class="hidden" role="dialog" aria-live="polite" aria-label="Interfone da recepção">
+  <span class="pauseTag">⏸ Tempo parado · leia com calma</span>
+  <div class="vhead"><canvas id="vFace" width="68" height="68"></canvas><div><h3 id="vName"></h3><div class="claim" id="vClaim"></div></div></div>
+  <div class="speech" id="vSpeech"></div>
+  <div id="vEvidWrap"><div class="ttl">O que você consegue conferir</div><ul class="evid" id="vEvid"></ul></div>
+  <div class="vbtns" id="vBtns"></div>
+</div>
+<div id="toasts"></div>
+<div id="flash"></div>
+<div id="glitch">ACESSO TOTAL</div>
+
+<!-- TABLET -->
+<div id="tablet" class="closed" aria-hidden="true">
+  <div id="tabletIn">
+    <aside id="side">
+      <div class="ttl">Alertas ativos <span id="alCount"></span></div>
+      <div id="alerts"></div>
+      <div class="ttl">Mapa da casa conectada</div>
+      <div id="map"></div>
+      <div class="legend">
+        <span><i class="dot"></i>sem alerta</span><span><i class="dot alert" style="animation:none"></i>alerta</span>
+        <span><i class="dot compromised" style="animation:none"></i>invadido</span><span><i class="dot secured"></i>protegido</span>
+      </div>
+    </aside>
+    <section id="main">
+      <div id="feedWrap"><canvas id="feed" width="640" height="368"></canvas><button id="closeTab">✕ Fechar <span style="opacity:.6">(Espaço)</span></button></div>
+      <div id="devArea"></div>
+    </section>
+  </div>
+</div>
+
+<!-- START -->
+<div class="screen lp" id="start">
+  <!-- HERO -->
+  <header class="hero">
+    <nav class="lpnav"><span class="logo">◉ TURNO DA <i>NOITE</i></span><span>IoT · Aula 14 · Desafio Cyber Defense</span></nav>
+    <div class="heroIn">
+      <div class="kicker">Simulador de segurança residencial · Internet das Coisas</div>
+      <h1>TURNO DA <em>NOITE</em></h1>
+      <p class="lead herolead">Uma casa inteligente, dez aparelhos conectados e uma noite inteira de plantão. Algo chamado <b>NULL</b> quer entrar, e ele não arromba portas: <b>entra pelas falhas de segurança</b>. Descubra cada falha e <b>cuidado com quem bate na recepção</b>: nem todo mundo é quem diz ser.</p>
+      <div class="heroStats">
+        <div><b>10</b><span>aparelhos conectados</span></div>
+        <div><b>6</b><span>visitantes na recepção</span></div>
+        <div><b>6h</b><span>de plantão (cerca de 4 min)</span></div>
+        <div><b>4</b><span>tipos de bicho à solta</span></div>
+      </div>
+    </div>
+    <a href="#missao" class="scrollcue">Role para conhecer a missão ↓</a>
+  </header>
+
+  <!-- 01 MISSÃO -->
+  <section class="lpsec" id="missao">
+    <div class="lpin two">
+      <div>
+        <div class="kicker">01 · A missão</div>
+        <h2>Você é o técnico de plantão da Casa Conectada</h2>
+        <p>Das 00:00 às 06:00 você fica trancado na sala de segurança, olhando as câmeras e o tráfego da rede. Durante a noite, os aparelhos da casa vão disparar <b>alertas</b>. Alguns são ataques de verdade, outros são só rotinas normais.</p>
+        <p>Cada alerta que você ignora vira uma <b>porta aberta</b> para o NULL. Quanto mais aparelhos invadidos, mais perto da sua sala ele chega.</p>
+      </div>
+      <div class="brief" id="brief"></div>
+    </div>
+  </section>
+
+  <!-- 02 COMO JOGAR -->
+  <section class="lpsec alt">
+    <div class="lpin">
+      <div class="kicker">02 · Como jogar</div>
+      <h2>Quatro coisas para sobreviver até as 06:00</h2>
+      <div class="cards">
+        <div class="cardL"><div class="n">01</div><div class="ico">🖱️</div><h3>Olhe ao redor</h3><p>Mova o mouse (ou arraste o dedo no celular) para virar a cabeça. À esquerda fica a porta; à direita, a sala de servidores.</p></div>
+        <div class="cardL"><div class="n">02</div><div class="ico">📷</div><h3>Abra as câmeras</h3><p>Clique no monitor verde ou aperte <kbd>Espaço</kbd>. O tablet mostra o mapa da casa, as 8 câmeras e a lista de alertas com o tempo que falta.</p></div>
+        <div class="cardL"><div class="n">03</div><div class="ico">🧩</div><h3>Faça o diagnóstico</h3><p>Leia os logs do aparelho e responda: qual é a <b>vulnerabilidade</b>, qual é a <b>ameaça</b> e qual <b>medida de proteção</b> aplicar.</p></div>
+        <div class="cardL"><div class="n">04</div><div class="ico">🛡️</div><h3>Tranque a porta</h3><p>Se o NULL aparecer na porta, aperte o botão vermelho do <b>firewall</b> ou <kbd>F</kbd>. Você tem 9 segundos, e cada uso gasta 12% de energia.</p></div>
+        <div class="cardL"><div class="n">05</div><div class="ico">🔔</div><h3>Atenda a recepção</h3><p>Quando alguém chega na janela, <b>o tempo para</b>. Leia o que a pessoa diz, confira as pistas, verifique pelo canal oficial e decida: liberar ou negar.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 DIAGNÓSTICO -->
+  <section class="lpsec">
+    <div class="lpin">
+      <div class="kicker">03 · O diagnóstico</div>
+      <h2>Falha + ameaça = impacto</h2>
+      <p>Uma <b>vulnerabilidade</b> sozinha não causa estrago: ela precisa de uma <b>ameaça</b> que a explore. Quando as duas se encontram, acontece o <b>impacto</b>. Proteger é corrigir a falha para que a ameaça não tenha por onde entrar.</p>
+      <div class="formula"><span class="v">Senha fraca</span><b>+</b><span class="a">Invasor</span><b>=</b><span class="i">Acesso indevido</span></div>
+      <div class="cards three">
+        <div class="cardL"><div class="n">Passo 1</div><h3 style="color:var(--amber)">Vulnerabilidade</h3><p>A falha ou ponto fraco do aparelho, sistema ou configuração.</p>
+          <ul><li>Senha fraca ou padrão</li><li>Sistema desatualizado</li><li>Comunicação desprotegida</li><li>Serviço exposto na Internet</li><li>Falta de controle de acesso</li><li><i>ou: falso alarme, o aparelho está seguro</i></li></ul></div>
+        <div class="cardL"><div class="n">Passo 2</div><h3 style="color:#ff8a98">Ameaça</h3><p>Quem ou o que explora a falha: um invasor, um malware ou uma ação maliciosa.</p>
+          <ul><li>Acesso não autorizado</li><li>Alteração de comandos</li><li>Botnet</li><li>Negação de serviço (DoS)</li></ul></div>
+        <div class="cardL"><div class="n">Passo 3</div><h3 style="color:var(--green)">Medida de proteção</h3><p>A ação que fecha a falha de verdade. Cuidado: algumas opções parecem ajudar, mas só disfarçam o problema.</p>
+          <ul><li>Trocar senhas padrão</li><li>Atualizar o firmware</li><li>Ativar criptografia</li><li>Fechar acessos remotos</li><li>Exigir PIN e permissões</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 RECEPÇÃO -->
+  <section class="lpsec alt">
+    <div class="lpin">
+      <div class="kicker">04 · A recepção</div>
+      <h2>Engenharia social: o ataque que bate na porta</h2>
+      <p>Nem todo ataque vem pela rede. Na <b>engenharia social</b>, o golpista engana uma <b>pessoa</b> para conseguir acesso: finge ser técnico, vizinho ou parente, cria pressa ou usa o nome de alguém de confiança. Durante a noite, 6 pessoas vão aparecer na janela da recepção. Algumas têm autorização de verdade. Outras, não.</p>
+      <p>Se você liberar um golpista, ele <b>se transforma num Hospedeiro</b>, quebra o vidro e corrompe três aparelhos da casa de uma vez.</p>
+      <div class="flags">
+        <div class="cardL"><h3 style="color:#ff8a98">🚩 Sinais de golpe</h3><ul>
+          <li><b>Urgência:</b> "é agora, não dá tempo de confirmar"</li>
+          <li><b>Falsa autoridade:</b> "o dono mandou", "sou da empresa"</li>
+          <li><b>Simpatia exagerada</b> para baixar a sua guarda</li>
+          <li><b>Pedido de senha</b> ou de acesso a computadores</li>
+          <li>Crachá incompleto, nada agendado, número desconhecido</li></ul></div>
+        <div class="cardL"><h3 style="color:var(--green)">✅ Sinais de visita legítima</h3><ul>
+          <li>Visita <b>agendada</b> ou chamado aberto antes</li>
+          <li>Identificação completa (nome, foto, empresa)</li>
+          <li>A pessoa <b>aceita e até sugere</b> que você confira</li>
+          <li>Confirmação pelo <b>canal oficial</b> (contato que você já tem)</li>
+          <li>Não pede senha nem acesso que não precisa</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 APARELHOS -->
+  <section class="lpsec">
+    <div class="lpin">
+      <div class="kicker">05 · A casa conectada</div>
+      <h2>Os aparelhos que você vai vigiar</h2>
+      <p>Cada aparelho usa uma tecnologia de comunicação diferente, as mesmas que estudamos nas aulas anteriores. Fique atento: <b>nem todo alerta é um ataque</b>.</p>
+      <div class="devgrid" id="lpDevices"></div>
+    </div>
+  </section>
+
+  <!-- 06 BICHOS -->
+  <section class="lpsec alt">
+    <div class="lpin two">
+      <canvas id="nullCanvas" width="300" height="400" aria-label="Imagem de câmera mostrando o NULL no corredor"></canvas>
+      <div>
+        <div class="kicker" style="color:var(--red)">06 · Os bichos</div>
+        <h2>O NULL</h2>
+        <p>Uma figura alta feita de cabos, cheia de olhos de LED vermelho e tentáculos que se mexem nas costas. Quando chega perto, a boca acende. Ele vive na Internet e só entra na casa quando encontra um aparelho desprotegido. Este é o caminho dele:</p>
+        <ul class="path">
+          <li><b>Internet</b>Fica do lado de fora, procurando falhas.</li>
+          <li><b>Aparelho invadido</b>Aparece na câmera do cômodo que ele dominou.</li>
+          <li><b>Corredor (CAM 02)</b>Está vindo na sua direção.</li>
+          <li><b>Porta da sala de segurança</b>Ative o firewall ou ele toma o controle da central.</li>
+        </ul>
+        <p><b>Dica:</b> corrigir um aparelho invadido faz o NULL recuar, e se todos estiverem protegidos ele é expulso da casa.</p>
+      </div>
+    </div>
+    <div class="lpin creatures">
+      <div class="cardL"><canvas id="hostCanvas" width="320" height="240" aria-label="Imagem de câmera mostrando um Hospedeiro"></canvas><h3 style="color:#ff8a98">O Hospedeiro</h3><p>Um golpista que você deixou entrar. Ele se deforma, quebra o vidro da recepção e passa a morar nos aparelhos que corrompeu. Ele aparece nas câmeras até você corrigir esses aparelhos.</p></div>
+      <div class="cardL"><canvas id="peekCanvas" width="320" height="240" aria-label="Imagem mostrando o Espreitador na janela dos servidores"></canvas><h3 style="color:#ff8a98">O Espreitador</h3><p>Quando a rede começa a ser tomada, alguma coisa sobe devagar na janela da sala de servidores, à sua direita. Ele só observa… e some se você olhar de volta.</p></div>
+      <div class="cardL"><img src="assets/animatronicos.jpg" alt="Os dois animatrônicos da dupla, com casca vermelha rachada e SESI SENAI no peito" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid #3a2418;display:block;margin-bottom:10px"><h3 style="color:var(--amber)">🤫 A dupla do pôster</h3><p>Tem um pôster vermelho na parede da direita. Clicar nele é engraçado… mas não clique demais. Eles são lentos, barulhentos, e <b>porta nenhuma segura os dois</b>.</p></div>
+    </div>
+  </section>
+
+  <!-- 07 PONTUAÇÃO -->
+  <section class="lpsec">
+    <div class="lpin">
+      <div class="kicker">07 · Pontuação e relatório</div>
+      <h2>Cada escolha conta</h2>
+      <div class="two" style="align-items:start">
+        <div>
+          <div class="keys pts">
+            <div><kbd>+40</kbd>Vulnerabilidade correta</div>
+            <div><kbd>+30</kbd>Ameaça correta</div>
+            <div><kbd>+30</kbd>Medida de proteção correta</div>
+            <div><kbd>+100</kbd>Falso alarme identificado</div>
+            <div><kbd style="color:#ff8a98">−15</kbd>Cada resposta errada na etapa</div>
+            <div><kbd style="color:var(--amber)">½</kbd>Aparelho recuperado depois de invadido</div>
+            <div><kbd>+60</kbd>Visitante decidido certo, depois de verificar</div>
+            <div><kbd>+45</kbd>Visitante decidido certo, sem verificar</div>
+            <div><kbd style="color:#ff8a98">−40</kbd>Liberar um golpista (e 3 aparelhos corrompidos)</div>
+          </div>
+        </div>
+        <div>
+          <p style="margin-top:0">Às 06:00 (ou se o NULL te pegar) aparece o <b>relatório de segurança</b>: as falhas identificadas, as ameaças reconhecidas, as medidas escolhidas e o seu nível final de proteção.</p>
+          <div class="levels">
+            <span style="color:var(--green)">🏰 Casa blindada · 85%+</span>
+            <span style="color:var(--blue)">🛡️ Proteção razoável · 60%+</span>
+            <span style="color:var(--amber)">⚠️ Casa vulnerável · 35%+</span>
+            <span style="color:var(--red)">💀 Dominada pelo NULL</span>
+          </div>
+          <p>⚡ A <b>energia</b> cai o tempo todo, mais rápido com o tablet aberto. Se chegar a zero, as luzes apagam…</p>
+        </div>
+      </div>
+      <h3 class="subh">Controles</h3>
+      <div class="keys">
+        <div><kbd>Mouse</kbd>Olhar ao redor</div>
+        <div><kbd>Espaço</kbd>Abrir/fechar câmeras</div>
+        <div><kbd>F</kbd>Firewall da porta</div>
+        <div><kbd>1–8</kbd>Trocar de câmera</div>
+        <div><kbd>Esc</kbd>Fechar o tablet</div>
+        <div><kbd>P</kbd>Pausar</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="lpsec cta">
+    <div class="lpin">
+      <div class="kicker">Pronto?</div>
+      <h2>O plantão começa à meia-noite</h2>
+      <p style="margin:0 auto">Use fones para a experiência completa 🎧</p>
+      <button class="go" id="btnStart">▶ COMEÇAR O PLANTÃO</button>
+      <label class="chk"><input type="checkbox" id="calm"> Modo apresentação (sem sustos e sem game over… a não ser que você invoque a dupla do pôster)</label>
+      <div class="duo">Dupla: Emannoel &amp; John · Internet das Coisas · Técnico em Desenvolvimento de Sistemas</div>
+    </div>
+  </section>
+</div>
+
+<div class="screen hidden" id="pauseScr"><div class="sbox"><div class="kicker">Pausado</div><h1 style="font-size:64px">PAUSA</h1><p class="lead">Aperte P ou clique para voltar.</p><button class="go" id="btnResume">Voltar ao plantão</button></div></div>
+
+<div class="screen hidden" id="report"><div class="sbox" id="reportIn"></div></div>
+
+<script src="assets/texturas.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* =========================================================
+   DADOS DO JOGO
+   ========================================================= */
+const NIGHT = 240;            // duração da noite em segundos (6 horas x 40 s)
+const ALERT_TIME = 42;        // segundos para responder um alerta
+
+const VULNS = {
+  senha:'Senha fraca ou padrão',
+  desatualizado:'Sistema desatualizado',
+  comunicacao:'Comunicação desprotegida',
+  exposto:'Serviço exposto na Internet',
+  acesso:'Falta de controle de acesso',
+  nenhuma:'Nenhuma: falso alarme, o dispositivo está seguro'
+};
+const VULN_DEF = {
+  senha:'Equipamento com senha conhecida ou fácil de descobrir.',
+  desatualizado:'Dispositivo que não recebeu as correções de segurança.',
+  comunicacao:'Dados ou comandos enviados sem proteção (sem criptografia).',
+  exposto:'Interface administrativa acessível pela Internet.',
+  acesso:'Qualquer pessoa consegue executar ações sem autorização.',
+  nenhuma:'Às vezes o alerta é só uma rotina normal.'
+};
+const THREATS = {
+  acesso:'Acesso não autorizado',
+  comandos:'Alteração de comandos',
+  botnet:'Botnet',
+  dos:'Negação de serviço (DoS)'
+};
+const THREAT_DEF = {
+  acesso:'Alguém usa funções que deveriam estar protegidas.',
+  comandos:'Configurações e ações do aparelho são modificadas indevidamente.',
+  botnet:'O aparelho é controlado junto com milhares de outros para fins maliciosos.',
+  dos:'O sistema fica sobrecarregado e para de responder.'
+};
+const ROOMS = {
+  quarto:{name:'Quarto', cam:'CAM 01'},
+  corredor:{name:'Corredor', cam:'CAM 02'},
+  escritorio:{name:'Escritório', cam:'CAM 03'},
+  sala:{name:'Sala de estar', cam:'CAM 04'},
+  cozinha:{name:'Cozinha', cam:'CAM 05'},
+  lavanderia:{name:'Lavanderia', cam:'CAM 06'},
+  entrada:{name:'Entrada', cam:'CAM 07'},
+  garagem:{name:'Garagem', cam:'CAM 08'},
+  seguranca:{name:'Segurança', cam:'VOCÊ'}
+};
+
+const DEVICES = [
+ {id:'cam',name:'Câmera IP',icon:'📷',room:'quarto',proto:'Wi-Fi',at:6,fx:.8,fy:.24,
+  alert:'Login remoto suspeito na câmera do quarto',
+  logs:['login usuário="admin" senha="admin" → SUCESSO','origem: 203.0.113.66 (fora da rede da casa)','vídeo transmitido para uma sessão desconhecida','senha nunca foi alterada desde a instalação'],
+  vuln:'senha',threat:'acesso',
+  fixes:[
+   {t:'Trocar a senha padrão por uma senha forte e ativar verificação em 2 etapas',ok:1},
+   {t:'Reiniciar a câmera',ok:0,why:'Reiniciar não muda a senha: o invasor entra de novo em segundos.'},
+   {t:'Virar a câmera para a parede',ok:0,why:'A falha continua: a câmera segue acessível com admin/admin.'},
+   {t:'Aumentar a resolução da imagem',ok:0,why:'Isso não tem relação com quem pode acessar a câmera.'}],
+  explain:'Senha padrão (vulnerabilidade) + invasor (ameaça) = imagens do quarto vazadas (impacto).'},
+ {id:'geladeira',name:'Geladeira inteligente',icon:'🧊',room:'cozinha',proto:'Wi-Fi',at:28,fx:.27,fy:.42,
+  alert:'Temperatura da geladeira alterada remotamente',
+  logs:['comando externo: temperatura 4 °C → 15 °C','firmware instalado: v1.0.2 (de 2019)','fabricante publicou 14 correções não instaladas','falha conhecida permite enviar comandos sem login'],
+  vuln:'desatualizado',threat:'comandos',
+  fixes:[
+   {t:'Instalar a atualização de firmware do fabricante e voltar a temperatura',ok:1},
+   {t:'Colocar gelo dentro da geladeira',ok:0,why:'Resolve o sintoma, mas a falha continua aberta para novos comandos.'},
+   {t:'Trocar o nome da rede Wi-Fi',ok:0,why:'O nome da rede não corrige a falha do firmware.'},
+   {t:'Desligar a luz da cozinha',ok:0,why:'Não tem relação com o problema.'}],
+  explain:'Como no ataque aos refrigeradores europeus: um sistema desatualizado deixou alguém alterar os comandos.'},
+ {id:'termostato',name:'Termostato',icon:'🌡️',room:'quarto',proto:'Zigbee',at:50,fx:.3,fy:.4,
+  alert:'Temperatura do quarto mudou sozinha às 02:15',
+  logs:['alteração feita pela rotina "Modo noite" criada pelo morador','firmware v4.2 (atualizado este mês)','acesso só pelo app oficial com verificação em 2 etapas','nenhuma conexão externa registrada'],
+  vuln:'nenhuma',
+  explain:'Nem todo alerta é ataque: era uma rotina programada e o aparelho está protegido.'},
+ {id:'fechadura',name:'Fechadura inteligente',icon:'🔐',room:'entrada',proto:'Bluetooth BLE',at:70,fx:.62,fy:.5,
+  alert:'Porta da frente destravada sem o app do morador',
+  logs:['pacote BLE "ABRIR" recebido em texto puro (sem criptografia)','o mesmo pacote foi capturado e repetido 3 vezes','remetente: aparelho não pareado a 8 m da porta','estado atual: DESTRAVADA'],
+  vuln:'comunicacao',threat:'comandos',
+  fixes:[
+   {t:'Ativar criptografia e pareamento seguro no Bluetooth da fechadura',ok:1},
+   {t:'Aumentar o volume do bipe da fechadura',ok:0,why:'O bipe não impede que o comando seja copiado.'},
+   {t:'Deixar o Bluetooth sempre visível para todos',ok:0,why:'Isso deixa a fechadura ainda mais exposta.'},
+   {t:'Colocar um tapete novo na entrada',ok:0,why:'Não tem relação com o problema.'}],
+  explain:'Um comando enviado sem proteção pode ser copiado e repetido (ataque de repetição).'},
+ {id:'roteador',name:'Roteador Wi-Fi',icon:'📡',room:'escritorio',proto:'Wi-Fi / Ethernet',at:92,fx:.64,fy:.48,
+  alert:'Milhares de tentativas de login no roteador',
+  logs:['painel de administração aberto para a Internet (porta 8080)','2.341 tentativas de login em 10 minutos','origens: 47 países diferentes','quem entrar aqui controla toda a rede da casa'],
+  vuln:'exposto',threat:'acesso',
+  fixes:[
+   {t:'Desativar a administração remota: painel acessível só pela rede local',ok:1},
+   {t:'Reiniciar o roteador toda noite',ok:0,why:'Depois de reiniciar, o painel continua aberto para a Internet.'},
+   {t:'Mudar o roteador para outro cômodo',ok:0,why:'A posição física não muda o que está exposto na Internet.'},
+   {t:'Postar o IP do roteador no grupo da família',ok:0,why:'Isso só espalha a informação.'}],
+  explain:'Uma interface administrativa exposta na Internet recebe tentativas de invasão o tempo todo.'},
+ {id:'tv',name:'Smart TV',icon:'📺',room:'sala',proto:'Wi-Fi',at:115,fx:.5,fy:.4,
+  alert:'Smart TV enviando tráfego estranho de madrugada',
+  logs:['app "FilmesGrátis" instalado às 03:02 sem aprovação','não há conta de administrador: qualquer um instala apps','TV enviando 900 pacotes/s para um servidor de comando','esse servidor controla outros 50 mil aparelhos'],
+  vuln:'acesso',threat:'botnet',
+  fixes:[
+   {t:'Remover o app, criar conta de administrador e exigir PIN para instalar apps',ok:1},
+   {t:'Diminuir o brilho da tela',ok:0,why:'Não tem relação com o problema.'},
+   {t:'Mudar de canal',ok:0,why:'O app malicioso continua rodando em segundo plano.'},
+   {t:'Colocar a TV no mudo',ok:0,why:'A TV continua atacando em silêncio.'}],
+  explain:'Um aparelho dominado vira "zumbi" de uma botnet e passa a ser usado junto com milhares de outros.'},
+ {id:'aspirador',name:'Robô aspirador',icon:'🤖',room:'lavanderia',proto:'Wi-Fi',at:138,fx:.58,fy:.76,
+  alert:'Robô aspirador andando sozinho no escuro',
+  logs:['limpeza agendada pelo morador para 04:00','comunicação com a nuvem criptografada (TLS)','firmware atualizado automaticamente','nenhum comando de origem desconhecida'],
+  vuln:'nenhuma',
+  explain:'Era um agendamento legítimo: o robô está seguro.'},
+ {id:'voz',name:'Assistente de voz',icon:'🔊',room:'sala',proto:'Wi-Fi',at:158,fx:.78,fy:.62,
+  alert:'Assistente de voz fez uma compra e tentou abrir o portão',
+  logs:['comando vindo do alto-falante da TV: "abrir o portão"','compra de R$ 899,00 confirmada sem PIN','o assistente aceita ordens de qualquer voz','nenhuma confirmação foi pedida'],
+  vuln:'acesso',threat:'acesso',
+  fixes:[
+   {t:'Ativar reconhecimento da voz do morador e PIN para compras e comandos sensíveis',ok:1},
+   {t:'Falar mais alto com o assistente',ok:0,why:'O assistente continua obedecendo qualquer voz.'},
+   {t:'Trocar a cor da luz do assistente',ok:0,why:'Não tem relação com o problema.'},
+   {t:'Deixar o assistente bem perto da TV',ok:0,why:'Isso facilita ainda mais o ataque.'}],
+  explain:'Funções sensíveis sem autorização deixam qualquer um (até a TV) dar ordens.'},
+ {id:'hub',name:'Hub Zigbee (luzes)',icon:'💡',room:'corredor',proto:'Zigbee',at:178,fx:.5,fy:.17,
+  alert:'Luzes e sensores pararam de responder',
+  logs:['hub Zigbee com 100% de processamento','40 mil requisições por minuto vindas da rede','firmware do hub de 2020, sem correção para essa falha','lâmpadas e sensores travados'],
+  vuln:'desatualizado',threat:'dos',
+  fixes:[
+   {t:'Atualizar o firmware do hub e ativar limite de requisições',ok:1},
+   {t:'Trocar as lâmpadas por outras mais fortes',ok:0,why:'O problema está no hub, não nas lâmpadas.'},
+   {t:'Ligar todas as luzes ao mesmo tempo',ok:0,why:'Mais requisições só pioram a sobrecarga.'},
+   {t:'Desligar o Zigbee da casa para sempre',ok:0,why:'Para o ataque na marra, mas a casa perde todas as funções. Corrija a falha.'}],
+  explain:'Negação de serviço: o sistema fica tão sobrecarregado que para de responder.'},
+ {id:'portao',name:'Portão da garagem',icon:'🚪',room:'garagem',proto:'Wi-Fi + app',at:198,fx:.5,fy:.36,
+  alert:'Portão da garagem abriu às 05:10',
+  logs:['login no app do portão: usuário "casa", senha "123456"','senha descoberta em 4 tentativas','comando "ABRIR PORTÃO" enviado de fora da casa','portão ficou aberto por 3 minutos'],
+  vuln:'senha',threat:'comandos',
+  fixes:[
+   {t:'Trocar "123456" por uma senha forte e única e ativar aviso de novo login',ok:1},
+   {t:'Pintar o portão',ok:0,why:'Não tem relação com o problema.'},
+   {t:'Usar a mesma senha em todos os aparelhos',ok:0,why:'Assim, uma senha vazada abre a casa inteira.'},
+   {t:'Lubrificar o motor do portão',ok:0,why:'O motor está ótimo; o problema é a senha.'}],
+  explain:'Com uma senha fraca, o invasor consegue mudar os comandos do portão.'}
+];
+const DEV = Object.fromEntries(DEVICES.map(d=>[d.id,d]));
+/* Visitantes da recepção: engenharia social (good = pode entrar) */
+const VISITORS = [
+ {id:'marta',at:16,good:true,name:'Marta Souza',claim:'Diz ser moradora da casa',
+  look:{shirt:0x3f6fb0,pants:0x2b2b35,skin:0xc89a78,hair:0x2a1a10,hat:null,long:true},
+  lines:['Oi! Sou a Marta, moro aqui.','Esqueci o celular no trabalho, por isso não consegui abrir pelo app. Pode conferir minha digital no leitor da porta?'],
+  evid:['🖐️ Leitor biométrico: digital reconhecida (Marta Souza, moradora) ✔','📋 Lista de moradores: Marta Souza ✔','🙂 Ela não tem pressa e não pede nenhuma senha'],
+  verify:'Você conferiu o cadastro da casa: Marta Souza é moradora e a digital confere.',
+  tech:'Pessoa autorizada',lesson:'Ela foi verificada por algo que só ela tem (a digital). Segurança também é deixar entrar quem tem permissão.'},
+ {id:'tecnico',at:58,good:false,name:'"Técnico" da operadora',claim:'Diz ser técnico da empresa de internet',
+  look:{shirt:0xd26a1d,pants:0x1f2a3a,skin:0xe0b18e,hair:0x111111,hat:'cap',hatColor:0xd26a1d},
+  lines:['Boa noite! Sou da operadora de internet. Recebemos um alerta de falha GRAVE no roteador de vocês.','É urgente: preciso entrar AGORA pra trocar o equipamento, senão a casa inteira fica sem internet! Não dá tempo de ligar pra ninguém, confia em mim.'],
+  evid:['🪪 Crachá sem foto e sem nome completo','📅 Agenda da casa: nenhuma visita técnica marcada','⚠️ Ele pressiona com urgência e pede para você não confirmar'],
+  verify:'Você ligou para o número oficial da operadora (o que está na fatura): "Não existe nenhum técnico agendado para esse endereço."',
+  tech:'Pretexto + urgência',lesson:'Golpistas inventam uma história (pretexto) e criam pressa para você não pensar. Sempre confirme pelo canal oficial.'},
+ {id:'julia',at:100,good:true,name:'Júlia Ramos',claim:'Técnica da SegurNet, com manutenção agendada',
+  look:{shirt:0x2f8f6a,pants:0x2b2b35,skin:0x8d5a3b,hair:0x1a0f08,hat:'helmet',hatColor:0xf2c230,long:true},
+  lines:['Boa noite, sou a Júlia, da SegurNet.','Tenho uma manutenção agendada no hub Zigbee para hoje. O protocolo é 4471. Pode conferir com calma no sistema, eu espero aqui.'],
+  evid:['📅 Agenda da casa: "Manutenção SegurNet, protocolo 4471" ✔','🪪 Crachá com foto, nome completo e empresa','🙂 Ela mesma sugere que você confira'],
+  verify:'A central da SegurNet (telefone do contrato) confirma: Júlia Ramos, protocolo 4471, visita autorizada.',
+  tech:'Visita legítima',lesson:'Visita agendada, identificação completa e confirmada pelo canal oficial: pode entrar.'},
+ {id:'vizinho',at:132,good:false,name:'"Vizinho" simpático',claim:'Diz morar na casa ao lado',
+  look:{shirt:0x7a3fa0,pants:0x3a3020,skin:0xd8a580,hair:0x6b4a2a,hat:null},
+  lines:['Opa, tudo bem? Sou o vizinho aqui do lado, a gente já se viu!','Minha internet caiu... me deixa entrar só um minutinho pra usar o computador de vocês? Ou me passa a senha do Wi-Fi, vai, é rapidinho. Somos amigos!'],
+  evid:['🏠 Cadastro do condomínio: ninguém com esse nome mora ao lado','📷 A câmera da rua mostra que ele veio de um carro estacionado, não da casa vizinha','🔑 Ele quer acesso à rede e aos computadores da casa'],
+  verify:'O porteiro do condomínio confirma: "A casa ao lado está vazia, ninguém mora lá."',
+  tech:'Simpatia + pedido de senha',lesson:'Ser simpático não prova nada. Nunca entregue a senha da rede ou acesso aos computadores para quem você não verificou.'},
+ {id:'antonio',at:162,good:true,name:'Antônio Lima',claim:'Zelador do condomínio',
+  look:{shirt:0x5d6b78,pants:0x2a3340,skin:0xa8714f,hair:0x9a9a9a,hat:'cap',hatColor:0x2a3340},
+  lines:['Boa noite. Sou o Antônio, zelador do condomínio.','Vim ver o vazamento na lavanderia que o morador reportou ontem. O chamado é o 208.'],
+  evid:['🧾 Chamado #208 aberto pelo morador ontem: "vazamento na lavanderia" ✔','🪪 Crachá do condomínio com foto ✔','🧰 Ele não pede senha nem acesso aos aparelhos'],
+  verify:'A administração do condomínio confirma: Antônio Lima é o zelador e o chamado #208 está aberto.',
+  tech:'Visita legítima',lesson:'O pedido bate com um chamado real e a identidade foi confirmada. Pode entrar.'},
+ {id:'sobrinho',at:196,good:false,name:'"Sobrinho" do morador',claim:'Diz que o tio pediu para ele buscar o notebook',
+  look:{shirt:0x262626,pants:0x1b2330,skin:0xe6c09e,hair:0x3b2a1a,hat:'hood',hatColor:0x262626},
+  lines:['E aí! O tio Carlos tá viajando e pediu pra eu pegar o notebook dele.','Ele disse que você ia liberar. Olha a mensagem dele aqui no meu celular! Rapidinho, que ele tá esperando.'],
+  evid:['📱 A mensagem mostrada veio de um número desconhecido, não do Carlos','📋 Lista de pessoas autorizadas: nenhum sobrinho','💻 Ele quer levar um aparelho cheio de dados da casa'],
+  verify:'Você mandou mensagem para o número cadastrado do Carlos: "Não mandei ninguém! Não deixa entrar!"',
+  tech:'Falsa autoridade',lesson:'Usar o nome de alguém de confiança ("o tio mandou") é um golpe clássico. Confirme direto com a pessoa, pelo contato que você já tem.'}
+];
+const VPTS_VERIFIED=60, VPTS_GUESS=45;
+const MAXSCORE = DEVICES.length*100 + VISITORS.length*VPTS_VERIFIED;
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const G = {};
+function resetGame(){
+  Object.assign(G,{running:false,paused:false,over:false,t:0,energy:100,score:0,stage:0,nullRoom:null,
+    nextCreep:1e9,probes:[100,185],door:{attack:false,timer:0,closed:0},tabletOpen:false,
+    curRoom:'quarto',curDev:null,calm:false,blackout:0,lastHour:-1,
+    visitor:null,vPause:false,trans:null,hosts:[],cracked:false,peekT:25,peek:null,
+    vq:VISITORS.slice().sort((a,b)=>a.at-b.at),posterClicks:0,anim:null,doorRipped:false});
+  VISITORS.forEach(v=>{ v.decision=null; v.verified=false; v.points=0; v.arrived=false; });
+  DEVICES.forEach(d=>{
+    d.state='idle'; d.deadline=0; d.step=0; d.points=0; d.tries={vuln:[],threat:[],fix:[]};
+    d.feedback=null; d.wasComp=false; d.chosenFix=null; d.resolvedAt=null;
+    d.order = d.fixes ? shuffle(d.fixes.map((_,i)=>i)) : [];
+  });
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+const compCount = ()=>DEVICES.filter(d=>d.state==='compromised').length;
+const activeAlerts = ()=>DEVICES.filter(d=>d.state==='alert'||d.state==='compromised');
+
+/* =========================================================
+   ÁUDIO (gerado na hora, sem arquivos)
+   ========================================================= */
+const A = {
+  ctx:null, master:null, noiseBuf:null, hum:null,
+  init(){
+    if(this.ctx) return;
+    try{
+      const C = window.AudioContext||window.webkitAudioContext; this.ctx=new C();
+      this.master=this.ctx.createGain(); this.master.gain.value=.8; this.master.connect(this.ctx.destination);
+      const len=this.ctx.sampleRate*2, b=this.ctx.createBuffer(1,len,this.ctx.sampleRate), d=b.getChannelData(0);
+      let last=0; for(let i=0;i<len;i++){const w=Math.random()*2-1; last=(last+.02*w)/1.02; d[i]=last*3.5;} // ruído marrom
+      this.noiseBuf=b;
+      const wb=this.ctx.createBuffer(1,len,this.ctx.sampleRate), wd=wb.getChannelData(0);
+      for(let i=0;i<len;i++) wd[i]=Math.random()*2-1; this.whiteBuf=wb;
+      // zumbido do ventilador
+      const n=this.ctx.createBufferSource(); n.buffer=b; n.loop=true;
+      const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=380;
+      const g=this.ctx.createGain(); g.gain.value=.16; n.connect(f); f.connect(g); g.connect(this.master); n.start();
+      const o=this.ctx.createOscillator(); o.frequency.value=60; const og=this.ctx.createGain(); og.gain.value=.018;
+      o.connect(og); og.connect(this.master); o.start();
+      this.hum={g,og};
+    }catch(e){ this.ctx=null; }
+  },
+  tone(freq,dur,type='sine',vol=.15,slide=0,delay=0){
+    if(!this.ctx) return; const t=this.ctx.currentTime+delay;
+    const o=this.ctx.createOscillator(), g=this.ctx.createGain(); o.type=type; o.frequency.setValueAtTime(freq,t);
+    if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20,freq+slide),t+dur);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t+dur+.02);
+  },
+  noise(dur,vol=.2,freq=2000,type='bandpass',white=true,delay=0){
+    if(!this.ctx) return; const t=this.ctx.currentTime+delay;
+    const s=this.ctx.createBufferSource(); s.buffer=white?this.whiteBuf:this.noiseBuf;
+    const f=this.ctx.createBiquadFilter(); f.type=type; f.frequency.value=freq;
+    const g=this.ctx.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t+dur+.02);
+  },
+  alert(){ this.tone(880,.12,'square',.07); this.tone(660,.16,'square',.07,0,.15); },
+  ok(){ this.tone(660,.12,'triangle',.12); this.tone(990,.2,'triangle',.12,0,.1); },
+  bad(){ this.tone(140,.25,'sawtooth',.1); },
+  click(){ this.tone(1800,.03,'square',.04); },
+  static(){ this.noise(.22,.18,3000,'highpass'); },
+  slam(){ this.noise(.5,.6,160,'lowpass',false); this.tone(70,.4,'sine',.35,-30); this.tone(1200,.18,'square',.03); },
+  step(){ this.noise(.15,.35,220,'lowpass',false); },
+  breathe(){ this.noise(1.2,.08,700,'bandpass'); },
+  scream(){
+    if(!this.ctx) return; const t=this.ctx.currentTime;
+    [180,233,311,415].forEach((f,i)=>{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sawtooth';
+      o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*2.4,t+.25);o.frequency.linearRampToValueAtTime(f*1.6,t+1.3);
+      g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+1.6);});
+    this.noise(1.5,.6,2500,'bandpass');
+  },
+  bell(){ this.tone(660,.7,'triangle',.14); this.tone(523,1.0,'triangle',.14,0,.45); },
+  intercom(){ this.noise(.18,.12,2500,'bandpass'); this.tone(1400,.08,'square',.04,0,.18); },
+  voice(){ for(let i=0;i<7;i++) this.tone(rnd(150,260),.07,'square',.025,rnd(-40,40),.25+i*.09); },
+  corrupt(){ [880,660,440,330,220,110].forEach((f,i)=>this.tone(f,.18,'sawtooth',.09,-f*.4,i*.07)); this.noise(1.2,.35,900,'bandpass'); },
+  whisper(){ this.noise(1.6,.07,1300,'bandpass'); this.noise(1.2,.05,700,'bandpass',true,.4); this.tone(52,1.8,'sine',.12,-10); },
+  sting(){ this.tone(1900,.5,'sawtooth',.06,-1400); this.noise(.4,.2,4000,'highpass'); },
+  creak(){ this.tone(90,.6,'sawtooth',.04,60); this.noise(.5,.08,500,'bandpass'); },
+  // sons engraçados do pôster
+  boing(){ if(!this.ctx) return; const t=this.ctx.currentTime, o=this.ctx.createOscillator(), g=this.ctx.createGain(), l=this.ctx.createOscillator(), lg=this.ctx.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(170,t); o.frequency.exponentialRampToValueAtTime(560,t+.35); l.frequency.value=16; lg.gain.value=45; l.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(.28,t); g.gain.exponentialRampToValueAtTime(.001,t+.65); o.connect(g); g.connect(this.master); o.start(t); l.start(t); o.stop(t+.67); l.stop(t+.67); },
+  honk(){ this.tone(330,.18,'square',.12); this.tone(262,.28,'square',.12,0,.2); },
+  squeak(){ this.tone(1700,.09,'sine',.14,700); this.tone(2300,.12,'sine',.14,-1100,.11); this.tone(1900,.1,'sine',.12,500,.25); },
+  slide(){ this.tone(380,.5,'sine',.18,1000); this.tone(1350,.4,'sine',.15,-1050,.5); },
+  wahwah(){ [392,370,349,330].forEach((f,i)=>this.tone(f,i<3?.3:1,'sawtooth',.07,i<3?0:-30,i*.33)); },
+  funny(n){ [this.boing,this.honk,this.squeak,this.slide,this.wahwah][n%5].call(this); },
+  // animatrônicos
+  servo(){ this.tone(rnd(240,330),.45,'sawtooth',.04,rnd(150,320)); },
+  clank(){ this.noise(.12,.4,3500,'highpass'); this.tone(rnd(900,1300),.25,'square',.05,-300); this.tone(90,.22,'sine',.3,-40); },
+  laugh(){ for(let i=0;i<6;i++){ this.tone(i%2?185:235,.13,'square',.08,-40,i*.16); this.noise(.1,.1,1100,'bandpass',true,i*.16); } },
+  crash(){ this.noise(1.3,1,380,'lowpass',false); this.noise(.9,.5,3000,'highpass'); [80,62,140].forEach((f,i)=>this.tone(f,.9,'sawtooth',.2,-30,i*.05)); },
+  mb:null,
+  musicBoxOn(){ if(this.mb||!this.ctx) return; const notes=[659,784,988,1319,1175,988,784,740];
+    const play=()=>notes.forEach((f,i)=>this.tone(f*(1+rnd(-.025,.025)),.55,'triangle',.05,rnd(-12,12),i*.33)); play(); this.mb=setInterval(play,2900); },
+  musicBoxOff(){ if(this.mb){ clearInterval(this.mb); this.mb=null; } },
+  drone:null,
+  droneOn(){ if(!this.ctx||this.drone) return; const o=this.ctx.createOscillator(), o2=this.ctx.createOscillator(), g=this.ctx.createGain(), lfo=this.ctx.createOscillator(), lg=this.ctx.createGain();
+    o.type='sawtooth'; o.frequency.value=55; o2.type='sawtooth'; o2.frequency.value=58.3; lfo.frequency.value=5; lg.gain.value=.04; g.gain.value=.07;
+    const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=300;
+    lfo.connect(lg); lg.connect(g.gain); o.connect(f); o2.connect(f); f.connect(g); g.connect(this.master); o.start(); o2.start(); lfo.start(); this.drone=[o,o2,lfo]; },
+  droneOff(){ if(this.drone){ this.drone.forEach(o=>{try{o.stop();}catch(e){}}); this.drone=null; } },
+  win(){ [523,659,784,1047].forEach((f,i)=>this.tone(f,.5,'triangle',.12,0,i*.18)); this.tone(1047,1.2,'sine',.08,0,.8); },
+  hour(){ this.tone(523,.6,'sine',.08); this.tone(392,.9,'sine',.08,0,.45); }
+};
+
+/* =========================================================
+   CENA 3D (three.js) — sala de segurança original
+   ========================================================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020304);
+scene.fog = new THREE.FogExp2(0x030405, .085);
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, .05, 60);
+camera.position.set(0,1.25,1.25);
+camera.rotation.order='YXZ';
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.getElementById('scene').appendChild(renderer.domElement);
+
+function canvasTex(w,h,draw,rep){
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); draw(g,w,h);
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; t.anisotropy=4;
+  if(rep){ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rep[0],rep[1]); }
+  t.userData={c,g}; return t;
+}
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+// textura de parede: blocos pintados com sujeira
+function wallDraw(g,w,h){
+  g.fillStyle='#3a4744'; g.fillRect(0,0,w,h);
+  const bw=128,bh=64;
+  for(let y=0;y<h;y+=bh) for(let x=-(y/bh%2)*bw/2;x<w;x+=bw){
+    const s=rnd(-10,10); g.fillStyle=`rgb(${58+s},${71+s},${68+s})`; g.fillRect(x+3,y+3,bw-6,bh-6);
+  }
+  g.fillStyle='#2b3432'; g.fillRect(0,h*.62,w,h*.06);              // faixa
+  g.fillStyle='#4c2a2a'; g.fillRect(0,h*.62,w,h*.015);
+  for(let i=0;i<90;i++){ g.fillStyle=`rgba(10,14,12,${rnd(.03,.12)})`; g.beginPath(); g.ellipse(rnd(0,w),rnd(h*.5,h),rnd(8,60),rnd(20,120),0,0,7); g.fill(); }
+  for(let i=0;i<14;i++){ g.strokeStyle='rgba(20,30,26,.35)'; g.lineWidth=rnd(1,3); g.beginPath(); const x=rnd(0,w); g.moveTo(x,rnd(0,h*.3)); g.lineTo(x+rnd(-4,4),rnd(h*.4,h)); g.stroke(); }
+}
+function floorDraw(g,w,h){
+  g.fillStyle='#1b201f'; g.fillRect(0,0,w,h);
+  for(let i=0;i<4000;i++){ const v=rnd(15,45); g.fillStyle=`rgba(${v},${v+4},${v+2},.5)`; g.fillRect(rnd(0,w),rnd(0,h),2,2); }
+  g.strokeStyle='rgba(0,0,0,.45)'; g.lineWidth=3;
+  for(let i=0;i<=w;i+=w/4){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,h); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(w,i); g.stroke(); }
+  for(let i=0;i<30;i++){ g.fillStyle=`rgba(0,0,0,${rnd(.05,.18)})`; g.beginPath(); g.arc(rnd(0,w),rnd(0,h),rnd(10,70),0,7); g.fill(); }
+}
+const wallTex = canvasTex(512,512,wallDraw,[2,1]);
+const floorTex = canvasTex(512,512,floorDraw,[3,3]);
+const M = {
+  wall:new THREE.MeshStandardMaterial({map:wallTex,roughness:.95}),
+  floor:new THREE.MeshStandardMaterial({map:floorTex,roughness:.85}),
+  ceil:new THREE.MeshStandardMaterial({color:0x14181a,roughness:1}),
+  dark:new THREE.MeshStandardMaterial({color:0x101314,roughness:.8,metalness:.2}),
+  metal:new THREE.MeshStandardMaterial({color:0x5b6366,roughness:.5,metalness:.7}),
+  desk:new THREE.MeshStandardMaterial({color:0x4a3b2d,roughness:.7}),
+  beige:new THREE.MeshStandardMaterial({color:0x8a8576,roughness:.6}),
+  black:new THREE.MeshStandardMaterial({color:0x070808,roughness:.6})
+};
+function box(w,h,d,mat,x,y,z,parent=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);parent.add(m);return m;}
+function plane(w,h,mat,x,y,z,ry=0,parent=scene){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);m.rotation.y=ry;parent.add(m);return m;}
+
+// --- sala: x -3..3, z -2.6..2.4, altura 2.8
+const H=2.8;
+box(6.2,.1,5.2,M.floor,0,-.05,-.1);
+box(6.2,.1,5.2,M.ceil,0,H+.05,-.1);
+// parede da frente com a janela da recepção (x -2.7..-1.1, y .95..2.05)
+box(.4,H,.2,M.wall,-2.9,H/2,-2.7);
+box(4.2,H,.2,M.wall,1.0,H/2,-2.7);
+box(1.6,.95,.2,M.wall,-1.9,.475,-2.7);
+box(1.6,H-2.05,.2,M.wall,-1.9,2.05+(H-2.05)/2,-2.7);
+box(1.72,.05,.34,M.metal,-1.9,.95,-2.52);             // balcão
+box(1.7,.06,.08,M.metal,-1.9,2.05,-2.6); box(.06,1.12,.08,M.metal,-2.73,1.5,-2.6); box(.06,1.12,.08,M.metal,-1.07,1.5,-2.6); box(.04,1.1,.06,M.metal,-1.9,1.5,-2.62);
+const recGlass=plane(1.6,1.1,new THREE.MeshStandardMaterial({color:0x8fc9c0,transparent:true,opacity:.1,roughness:.05,metalness:.7}),-1.9,1.5,-2.62);
+const crackTex=canvasTex(512,352,(g,w,h)=>{ g.clearRect(0,0,w,h); g.strokeStyle='rgba(230,255,245,.85)'; const cx=w*.55,cy=h*.45;
+  for(let i=0;i<16;i++){ g.lineWidth=rnd(1,2.5); g.beginPath(); g.moveTo(cx,cy); let x=cx,y=cy; const a=i/16*6.28+rnd(-.2,.2);
+    for(let k=0;k<6;k++){ x+=Math.cos(a+rnd(-.4,.4))*rnd(20,60); y+=Math.sin(a+rnd(-.4,.4))*rnd(20,60); g.lineTo(x,y);} g.stroke(); }
+  for(let r=30;r<200;r+=rnd(30,55)){ g.lineWidth=1; g.beginPath(); for(let i=0;i<=18;i++){const a=i/18*6.28; g.lineTo(cx+Math.cos(a)*r*rnd(.8,1.2),cy+Math.sin(a)*r*rnd(.8,1.2));} g.stroke(); }
+  g.fillStyle='rgba(120,0,10,.5)'; for(let i=0;i<40;i++){ g.beginPath(); g.arc(cx+rnd(-60,60),cy+rnd(-50,80),rnd(1,5),0,7); g.fill(); } });
+crackTex.encoding=THREE.LinearEncoding;
+const crack=plane(1.6,1.1,new THREE.MeshBasicMaterial({map:crackTex,transparent:true,depthWrite:false}),-1.9,1.5,-2.615); crack.visible=false;
+// interfone + placa
+const icom=box(.16,.24,.05,M.metal,-.85,1.25,-2.58);
+const icomLed=box(.03,.03,.02,new THREE.MeshBasicMaterial({color:0x226633}),-.85,1.33,-2.55);
+plane(.1,.1,new THREE.MeshBasicMaterial({map:canvasTex(64,64,(g)=>{g.fillStyle='#222';g.fillRect(0,0,64,64);g.fillStyle='#555';for(let y=8;y<64;y+=10)for(let x=8;x<64;x+=10){g.beginPath();g.arc(x,y,3,0,7);g.fill();}})}),-.85,1.21,-2.553);
+plane(1.1,.2,new THREE.MeshBasicMaterial({map:canvasTex(320,58,(g,w,h)=>{g.fillStyle='#06140c';g.fillRect(0,0,w,h);g.strokeStyle='#57ff9a';g.lineWidth=3;g.strokeRect(3,3,w-6,h-6);g.fillStyle='#57ff9a';g.font='bold 26px Arial';g.textAlign='center';g.fillText('RECEPÇÃO · INTERFONE',w/2,38);})}),-1.9,2.3,-2.59);
+
+// --- hall da recepção (atrás da janela): z -2.8 .. -6.25, x -2.95 .. -0.85
+box(2.2,.1,3.5,M.floor,-1.9,-.05,-4.5);
+box(2.2,.1,3.5,M.ceil,-1.9,H+.05,-4.5);
+box(.1,H,3.5,M.wall,-3.0,H/2,-4.5);
+box(.1,H,1.2,M.wall,-.8,H/2,-3.4); box(.1,H,1.3,M.wall,-.8,H/2,-5.6); box(.1,H-2.0,.9,M.wall,-.8,2.0+(H-2)/2,-4.45);
+box(.6,H,.1,M.wall,-2.65,H/2,-6.25); box(.6,H,.1,M.wall,-1.15,H/2,-6.25); box(.9,H-2.0,.1,M.wall,-1.9,2.0+(H-2)/2,-6.25);
+const doorMat=new THREE.MeshStandardMaterial({map:canvasTex(128,256,(g,w,h)=>{g.fillStyle='#3b2f27';g.fillRect(0,0,w,h);g.strokeStyle='#2a201a';g.lineWidth=6;g.strokeRect(14,14,w-28,h*.42);g.strokeRect(14,h*.5,w-28,h*.44);g.fillStyle='#9fd1e8';g.globalAlpha=.25;g.fillRect(30,30,w-60,h*.3);}),roughness:.7});
+const extDoor=new THREE.Group(); extDoor.position.set(-2.35,0,-6.25); scene.add(extDoor);
+box(.9,2.0,.05,doorMat,.45,1.0,0,extDoor); box(.04,.04,.1,M.metal,.8,1.0,.04,extDoor);
+const inDoor=new THREE.Group(); inDoor.position.set(-.8,0,-4.0); scene.add(inDoor);
+const inDoorMat=new THREE.MeshStandardMaterial({color:0x4a5254,roughness:.6,metalness:.3});
+box(.05,2.0,.9,inDoorMat,0,1.0,-.45,inDoor); box(.1,.04,.04,M.metal,-.04,1.0,-.8,inDoor);
+plane(.5,.12,new THREE.MeshBasicMaterial({map:canvasTex(160,40,(g,w,h)=>{g.fillStyle='#111';g.fillRect(0,0,w,h);g.fillStyle='#ddd';g.font='bold 20px Arial';g.textAlign='center';g.fillText('→ CASA',w/2,28);})}),-.86,2.15,-4.45,-Math.PI/2);
+box(.7,.02,.45,new THREE.MeshStandardMaterial({color:0x3a1e1e,roughness:1}),-1.9,.01,-5.7);   // capacho
+// lado de fora (só aparece com a porta aberta)
+box(3,3,.1,new THREE.MeshBasicMaterial({color:0x050a14}),-1.9,1.5,-7.8);
+const streetLight=new THREE.PointLight(0x4a6cff,.0,4,2); streetLight.position.set(-1.9,2.2,-7.0); scene.add(streetLight);
+// luz fria do hall (pisca)
+box(.8,.04,.1,new THREE.MeshBasicMaterial({color:0xdff3ff}),-1.9,H-.02,-4.3);
+const hallRecLight=new THREE.PointLight(0xcfe6ff,.75,5.5,2); hallRecLight.position.set(-1.9,2.5,-4.2); scene.add(hallRecLight);
+box(6.2,H,.2,M.wall,0,H/2,2.5);            // parede de trás
+// parede esquerda com porta (z -0.35..0.85)
+box(.2,H,2.25,M.wall,-3.1,H/2,-1.475);
+box(.2,H,1.55,M.wall,-3.1,H/2,1.625);
+box(.2,H-2.15,1.2,M.wall,-3.1,2.15+(H-2.15)/2,.25);
+// batentes
+box(.24,2.15,.06,M.metal,-3.0,1.075,-.38); box(.24,2.15,.06,M.metal,-3.0,1.075,.88); box(.24,.06,1.3,M.metal,-3.0,2.17,.25);
+// parede direita com janela (z -1.0..0.6, y .95..2.0)
+box(.2,H,1.6,M.wall,3.1,H/2,-1.8);
+box(.2,H,1.8,M.wall,3.1,H/2,1.5);
+box(.2,.95,1.6,M.wall,3.1,.475,-.2);
+box(.2,H-2.0,1.6,M.wall,3.1,2.0+(H-2)/2,-.2);
+box(.08,.06,1.7,M.metal,3.0,.95,-.2); box(.08,.06,1.7,M.metal,3.0,2.0,-.2);
+const glass=plane(1.6,1.05,new THREE.MeshStandardMaterial({color:0x6fa9a0,transparent:true,opacity:.12,roughness:.1,metalness:.6}),3.02,1.475,-.2,-Math.PI/2);
+
+// --- corredor escuro atrás da porta (x -3.2 .. -11)
+box(8,.1,1.6,M.floor,-7.2,-.05,.25);
+box(8,.1,1.6,M.ceil,-7.2,2.45,.25);
+box(8,2.5,.1,M.wall,-7.2,1.25,-.6);
+box(8,2.5,.1,M.wall,-7.2,1.25,1.1);
+box(.1,2.5,1.6,M.dark,-11.2,1.25,.25);
+const hallLight=new THREE.PointLight(0xff2a2a,.5,7,2); hallLight.position.set(-8.5,2.1,.25); scene.add(hallLight);
+const hallBulb=box(.12,.06,.12,new THREE.MeshBasicMaterial({color:0xff3344}),-8.5,2.38,.25);
+
+// --- sala de servidores atrás da janela
+box(3,.1,2.6,M.floor,4.6,-.05,-.2);
+box(3,.1,2.6,M.ceil,4.6,H+.05,-.2);
+box(.1,H,2.6,M.wall,6.1,H/2,-.2);
+box(3,H,.1,M.wall,4.6,H/2,-1.5); box(3,H,.1,M.wall,4.6,H/2,1.1);
+const leds=[];
+for(let r=0;r<3;r++){
+  const rx=4.7, rz=-.95+r*.72; box(.7,2.0,.6,M.black,rx,1.0,rz);
+  for(let i=0;i<14;i++) for(let j=0;j<3;j++){
+    const m=new THREE.MeshBasicMaterial({color:0x33ff88});
+    const l=new THREE.Mesh(new THREE.BoxGeometry(.02,.02,.02),m);
+    l.position.set(rx-.36,.25+i*.12,rz-.18+j*.09+(i%2)*.04); scene.add(l); leds.push({m,ph:Math.random()*10,sp:rnd(2,9)});
+  }
+}
+const serverLight=new THREE.PointLight(0x2bd9a0,.35,4,2); serverLight.position.set(4.6,2.2,-.2); scene.add(serverLight);
+
+// --- mesa
+box(2.8,.06,.95,M.desk,0,.78,-.35);
+box(.06,.76,.9,M.dark,-1.35,.38,-.35); box(.06,.76,.9,M.dark,1.35,.38,-.35); box(2.7,.6,.04,M.dark,0,.45,-.78);
+// monitor CRT principal
+const crt=new THREE.Group(); crt.position.set(0,1.08,-.5); scene.add(crt);
+box(.66,.52,.5,M.beige,0,0,0,crt); box(.5,.38,.3,M.beige,0,.0,-.38,crt); box(.3,.06,.3,M.beige,0,-.29,0,crt);
+const crtTex = canvasTex(512,384,()=>{});
+const crtScreen = plane(.54,.4,new THREE.MeshBasicMaterial({map:crtTex}),0,.01,.252,0,crt);
+crtScreen.name='monitor';
+const crtLight=new THREE.PointLight(0x47ff9a,.55,2.6,2); crtLight.position.set(0,1.1,-.1); scene.add(crtLight);
+// post-it
+plane(.07,.07,new THREE.MeshBasicMaterial({map:canvasTex(64,64,(g)=>{g.fillStyle='#e8d65a';g.fillRect(0,0,64,64);g.fillStyle='#333';g.font='bold 11px sans-serif';g.fillText('senha:',6,22);g.fillText('admin123',6,38);g.strokeStyle='#c22';g.lineWidth=3;g.beginPath();g.moveTo(4,56);g.lineTo(60,8);g.stroke();})}),.29,.2,.253,0,crt);
+// monitores menores com estática
+const smalls=[];
+[-.85,.85].forEach((x,i)=>{
+  const g=new THREE.Group(); g.position.set(x,.98,-.55); g.rotation.y=x<0?.35:-.35; scene.add(g);
+  box(.42,.32,.34,M.dark,0,0,0,g); box(.12,.12,.12,M.dark,0,-.2,0,g);
+  const c=document.createElement('canvas'); c.width=80; c.height=60; const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter;
+  plane(.36,.26,new THREE.MeshBasicMaterial({map:t}),0,0,.171,0,g);
+  smalls.push({c,g:c.getContext('2d'),t,tint:i?[90,200,255]:[120,255,170]});
+});
+// teclado, caneca, papéis, telefone
+box(.5,.03,.17,M.dark,0,.825,-.05);
+for(let i=0;i<4;i++) box(.46,.008,.03,M.metal,0,.843,-.11+i*.04);
+const mug=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.1,16),new THREE.MeshStandardMaterial({color:0x7a1f24,roughness:.5})); mug.position.set(.55,.86,-.05); scene.add(mug);
+const paperMat=new THREE.MeshStandardMaterial({map:canvasTex(256,320,(g,w,h)=>{g.fillStyle='#d9d4c4';g.fillRect(0,0,w,h);g.fillStyle='#222';g.font='bold 20px sans-serif';g.fillText('PLANTÃO 00h–06h',16,36);g.font='16px sans-serif';
+  ['1. Verifique os alertas','2. Descubra a falha','3. Quem está explorando?','4. Aplique a proteção','','NÃO deixe a energia','acabar.','','Firewall = porta','trancada (gasta','energia)'].forEach((l,i)=>g.fillText(l,16,72+i*22));}),roughness:.9});
+const paper=new THREE.Mesh(new THREE.PlaneGeometry(.21,.27),paperMat); paper.rotation.x=-Math.PI/2; paper.rotation.z=.25; paper.position.set(-.5,.812,-.05); scene.add(paper);
+box(.18,.06,.2,M.black,.9,.84,-.15); box(.16,.04,.05,M.black,.9,.88,-.2);
+// ventilador de mesa
+const fan=new THREE.Group(); fan.position.set(-1.05,.81,-.4); fan.rotation.y=.5; scene.add(fan);
+const fanBase=new THREE.Mesh(new THREE.CylinderGeometry(.09,.1,.03,20),M.metal); fanBase.position.y=.015; fan.add(fanBase);
+const fanPole=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.25,8),M.metal); fanPole.position.y=.14; fan.add(fanPole);
+const cage=new THREE.Mesh(new THREE.TorusGeometry(.13,.006,6,30),M.metal); cage.position.set(0,.3,.02); fan.add(cage);
+const blades=new THREE.Group(); blades.position.set(0,.3,.02); fan.add(blades);
+for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.04,.11,.005),M.dark); b.position.y=.06; const p=new THREE.Group(); p.rotation.z=i*2.094; p.add(b); blades.add(p);}
+// lâmpada de teto
+const lampG=new THREE.Group(); lampG.position.set(0,H,-.3); scene.add(lampG);
+const cord=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.5,6),M.black); cord.position.y=-.25; lampG.add(cord);
+const shade=new THREE.Mesh(new THREE.ConeGeometry(.22,.16,20,1,true),new THREE.MeshStandardMaterial({color:0x2c3533,side:THREE.DoubleSide,metalness:.5,roughness:.5})); shade.position.y=-.55; lampG.add(shade);
+const bulbMat=new THREE.MeshBasicMaterial({color:0xffe6b0}); const bulb=new THREE.Mesh(new THREE.SphereGeometry(.045,12,8),bulbMat); bulb.position.y=-.6; lampG.add(bulb);
+const ceilLight=new THREE.PointLight(0xffd9a0,1.0,9,1.6); ceilLight.position.set(0,2.15,-.3); scene.add(ceilLight);
+const amb=new THREE.AmbientLight(0x2a3a38,.55); scene.add(amb);
+const hemi=new THREE.HemisphereLight(0x1b2a2a,0x050505,.25); scene.add(hemi);
+
+// cartazes na parede (originais, sobre segurança)
+function poster(lines,bg,fg,acc){
+  return canvasTex(256,360,(g,w,h)=>{
+    g.fillStyle=bg; g.fillRect(0,0,w,h); g.strokeStyle=acc; g.lineWidth=8; g.strokeRect(10,10,w-20,h-20);
+    g.textAlign='center'; let y=70;
+    lines.forEach(([txt,size,col])=>{ g.fillStyle=col||fg; g.font=`bold ${size}px Arial Black, Arial, sans-serif`; g.fillText(txt,w/2,y); y+=size+12; });
+    for(let i=0;i<300;i++){g.fillStyle=`rgba(0,0,0,${rnd(.02,.1)})`;g.fillRect(rnd(0,w),rnd(0,h),rnd(1,6),rnd(1,6));}
+  });
+}
+const posters=[
+  [poster([['SENHA',40],['PADRÃO',40],['=',40,'#ff3047'],['PORTA',40],['ABERTA',40],['troque no 1º dia',18,'#9fb']],'#141b1f','#e8f2ee','#ff3047'),2.4,1.55,.3],
+  [poster([['ATUALIZE',34],['O FIRMWARE',30],['',10],['cada correção',20,'#cde'],['é uma porta',20,'#cde'],['trancada',20,'#cde'],['🔒',60]],'#0f1d16','#57ff9a','#57ff9a'),1.6,1.55,-.25],
+  [poster([['FALHA',30,'#ffb547'],['≠',36],['AMEAÇA',30,'#ff3047'],['',6],['vulnerabilidade:',17,'#bcd'],['o ponto fraco',17,'#bcd'],['ameaça:',17,'#bcd'],['quem explora',17,'#bcd']],'#18141a','#e8f2ee','#ffb547'),.95,1.9,.12]
+];
+posters.forEach(([t,x,y,rz])=>{const p=plane(.55,.77,new THREE.MeshStandardMaterial({map:t,roughness:.9}),x,y,-2.59); p.rotation.z=rz*.08; p.scale.setScalar(x===.95?.7:1);});
+// placa acima da porta
+const sign=plane(.9,.2,new THREE.MeshBasicMaterial({map:canvasTex(256,56,(g,w,h)=>{g.fillStyle='#2a0508';g.fillRect(0,0,w,h);g.fillStyle='#ff4455';g.font='bold 24px Arial';g.textAlign='center';g.fillText('ACESSO RESTRITO',w/2,37);})}),-2.98,2.4,.25,Math.PI/2);
+// relógio digital na parede
+const clockTex=canvasTex(256,96,()=>{});
+plane(.5,.19,new THREE.MeshBasicMaterial({map:clockTex}),-.35,2.3,-2.59);
+box(.54,.23,.04,M.black,-.35,2.3,-2.62);
+
+// painel do firewall ao lado da porta
+const panel=new THREE.Group(); panel.position.set(-2.98,1.3,-.95); panel.rotation.y=Math.PI/2; scene.add(panel);
+box(.34,.46,.05,M.metal,0,0,0,panel);
+const fwBtnMat=new THREE.MeshStandardMaterial({color:0xb0101f,emissive:0xff1030,emissiveIntensity:.6,roughness:.4});
+const fwBtn=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.06,24),fwBtnMat); fwBtn.rotation.x=Math.PI/2; fwBtn.position.set(0,-.04,.05); panel.add(fwBtn); fwBtn.name='firewall';
+plane(.3,.09,new THREE.MeshBasicMaterial({map:canvasTex(200,60,(g,w,h)=>{g.fillStyle='#111';g.fillRect(0,0,w,h);g.fillStyle='#ffd23f';g.font='bold 30px Arial';g.textAlign='center';g.fillText('FIREWALL',w/2,42);})}),0,.16,.028,0,panel);
+const fwLight=new THREE.PointLight(0xff1030,.25,1.2,2); fwLight.position.set(-2.85,1.26,-.95); scene.add(fwLight);
+// porta de aço (desce quando o firewall é ativado)
+const shutterMat=new THREE.MeshStandardMaterial({map:canvasTex(128,256,(g,w,h)=>{g.fillStyle='#4d5557';g.fillRect(0,0,w,h);for(let y=0;y<h;y+=16){g.fillStyle='#3a4143';g.fillRect(0,y,w,4);g.fillStyle='#626b6d';g.fillRect(0,y+4,w,2);}g.fillStyle='#d4a514';for(let x=-h;x<w;x+=40){g.save();g.beginPath();g.rect(0,h-40,w,40);g.clip();g.translate(x,h-40);g.rotate(-.6);g.fillRect(0,0,18,90);g.restore();}}),metalness:.6,roughness:.45});
+const shutter=box(.1,2.15,1.24,shutterMat,-3.1,3.3,.25);
+
+// --- NULL: a criatura original feita de cabos com um olho de LED
+function makeNull(){
+  const g=new THREE.Group();
+  const skin=new THREE.MeshStandardMaterial({color:0x0c0d10,roughness:.85,metalness:.35});
+  const cab=new THREE.MeshStandardMaterial({color:0x17191d,roughness:.6,metalness:.4});
+  [-.11,.11].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(.05,.035,1.05,8),skin); l.position.set(x,.52,0); g.add(l);});
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.24,.16,.8,10),skin); torso.position.y=1.42; g.add(torso);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.04,.05,.18,8),cab); neck.position.y=1.9; g.add(neck);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.34,.28,.3),skin); head.position.y=2.08; head.rotation.z=.12; g.add(head);
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.3,.07,.02),new THREE.MeshBasicMaterial({color:0x050506})); visor.position.set(0,2.1,.155); g.add(visor);
+  const eyeMat=new THREE.MeshBasicMaterial({color:0xff1a2e}); const eye=new THREE.Mesh(new THREE.SphereGeometry(.035,12,8),eyeMat); eye.position.set(.05,2.1,.17); g.add(eye);
+  [-1,1].forEach(s=>{const a=new THREE.Mesh(new THREE.CylinderGeometry(.03,.02,1.15,6),skin); a.position.set(s*.32,1.2,.03); a.rotation.z=s*.12; g.add(a);
+    for(let k=0;k<3;k++){const f=new THREE.Mesh(new THREE.CylinderGeometry(.008,.004,.18,4),cab); f.position.set(s*(.38+k*.015),.6,.03+(k-1)*.03); f.rotation.z=s*.3; g.add(f);} });
+  for(let i=0;i<14;i++){
+    const pts=[]; const a=rnd(0,6.28), r=rnd(.12,.24); let x=Math.cos(a)*r, z=Math.sin(a)*r, y=rnd(1.2,1.85);
+    for(let k=0;k<5;k++){ pts.push(new THREE.Vector3(x,y,z)); x+=rnd(-.08,.08); z+=rnd(-.06,.1); y-=rnd(.12,.3); }
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),16,rnd(.006,.014),5),cab); g.add(tube);
+  }
+  const eyeLight=new THREE.PointLight(0xff1a2e,1.3,3.2,2); eyeLight.position.set(.05,2.1,.35); g.add(eyeLight);
+  // olhos extras espalhados pela cabeça e pelo peito
+  const eyes=[];
+  [[-.1,2.15,.16],[.12,2.04,.16],[-.06,2.02,.16],[.14,2.17,.14],[0,1.62,.2],[-.12,1.5,.18],[.1,1.42,.17]].forEach(p=>{
+    const m=new THREE.MeshBasicMaterial({color:0xff1a2e}); const e=new THREE.Mesh(new THREE.SphereGeometry(rnd(.012,.022),8,6),m); e.position.set(...p); g.add(e); eyes.push({m,ph:Math.random()*9});
+  });
+  // boca que brilha e abre
+  const mouthMat=new THREE.MeshBasicMaterial({color:0xff2a10}); const mouth=new THREE.Mesh(new THREE.BoxGeometry(.2,.02,.02),mouthMat); mouth.position.set(0,1.98,.155); g.add(mouth);
+  for(let i=0;i<7;i++){ const t=new THREE.Mesh(new THREE.ConeGeometry(.008,.04,4),new THREE.MeshBasicMaterial({color:0xd8d8c8})); t.position.set(-.09+i*.03,1.995,.16); t.rotation.x=Math.PI; mouth.add(t); t.position.sub(mouth.position); }
+  // tentáculos de cabo nas costas
+  const tent=makeTendrils(7,.24,cab,[0,1.72,-.12],1.4); g.add(tent.group);
+  g.userData={eye,eyeMat,eyeLight,head,eyes,mouth,tent};
+  return g;
+}
+function makeTendrils(n,segLen,mat,origin,spread){
+  const group=new THREE.Group(); group.position.set(...origin); const segs=[];
+  for(let i=0;i<n;i++){
+    const root=new THREE.Group(); root.rotation.z=rnd(-spread,spread); root.rotation.x=rnd(-1.1,-.25); group.add(root);
+    let parent=root;
+    for(let k=0;k<4;k++){
+      const s=new THREE.Group(); if(k>0) s.position.y=segLen; parent.add(s);
+      const r=.022*(1-k*.2); const m=new THREE.Mesh(new THREE.CylinderGeometry(r*.8,r,segLen,5),mat); m.position.y=segLen/2; s.add(m);
+      segs.push({s,ph:i*1.7+k*.6,sp:rnd(1.5,3.5),amp:.22+k*.1}); parent=s;
+    }
+    const tip=new THREE.Mesh(new THREE.SphereGeometry(.018,6,4),new THREE.MeshBasicMaterial({color:0xff1a2e})); tip.position.y=segLen; parent.add(tip);
+  }
+  return {group,segs};
+}
+function wiggle(t,now,fast){ t.segs.forEach(o=>{ o.s.rotation.z=Math.sin(now*o.sp*(fast?2.2:1)+o.ph)*o.amp; o.s.rotation.x=Math.cos(now*o.sp*.7+o.ph)*o.amp*.6; }); }
+
+/* --- pessoas da recepção (e o que elas viram quando são golpistas) --- */
+const hex=c=>'#'+c.toString(16).padStart(6,'0');
+function drawFace(g,w,h,sp,bad){
+  if(bad){
+    g.fillStyle='#060708'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#ff2a3e'; g.shadowColor='#ff2a3e'; g.shadowBlur=w*.12; g.lineWidth=w*.025;
+    g.beginPath(); g.moveTo(w*.5,0); g.lineTo(w*.45,h*.3); g.lineTo(w*.55,h*.5); g.lineTo(w*.48,h); g.stroke();
+    g.fillStyle='#ff2a3e'; [[.28,.38,.07],[.72,.36,.07],[.36,.2,.035],[.66,.18,.03],[.82,.52,.03],[.2,.55,.025]].forEach(([x,y,r])=>{g.beginPath();g.arc(w*x,h*y,w*r,0,7);g.fill();});
+    g.beginPath(); g.moveTo(w*.2,h*.72); for(let i=0;i<=8;i++) g.lineTo(w*(.2+i*.075),h*(i%2?.66:.86)); g.closePath(); g.fill(); g.shadowBlur=0;
+    return;
+  }
+  g.fillStyle=hex(sp.skin); g.fillRect(0,0,w,h);
+  const sh=g.createRadialGradient(w*.5,h*.45,w*.1,w*.5,h*.5,w*.75); sh.addColorStop(0,'rgba(255,255,255,.08)'); sh.addColorStop(1,'rgba(0,0,0,.35)'); g.fillStyle=sh; g.fillRect(0,0,w,h);
+  g.fillStyle=hex(sp.hair); g.fillRect(0,0,w,h*.2); if(sp.long){ g.fillRect(0,0,w*.12,h*.8); g.fillRect(w*.88,0,w*.12,h*.8); }
+  g.fillStyle='#f3efe6'; [[.32,.46],[.68,.46]].forEach(([x,y])=>{g.beginPath();g.ellipse(w*x,h*y,w*.09,h*.055,0,0,7);g.fill();});
+  g.fillStyle='#1a120c'; [[.33,.46],[.67,.46]].forEach(([x,y])=>{g.beginPath();g.arc(w*x,h*y,w*.04,0,7);g.fill();});
+  g.strokeStyle=hex(sp.hair); g.lineWidth=w*.03; [[.22,.34,.42,.32],[.58,.32,.78,.34]].forEach(([a,b,c,d])=>{g.beginPath();g.moveTo(w*a,h*b);g.lineTo(w*c,h*d);g.stroke();});
+  g.strokeStyle='rgba(60,20,10,.6)'; g.lineWidth=w*.025; g.beginPath(); g.moveTo(w*.5,h*.5); g.lineTo(w*.46,h*.63); g.lineTo(w*.52,h*.64); g.stroke();
+  g.strokeStyle='#6a2a22'; g.lineWidth=w*.03; g.beginPath(); g.moveTo(w*.38,h*.77); g.quadraticCurveTo(w*.5,h*.8,w*.62,h*.77); g.stroke();
+}
+function makePerson(v){
+  const sp=v.look, g=new THREE.Group();
+  const mats={shirt:new THREE.MeshStandardMaterial({color:sp.shirt,roughness:.85}),pants:new THREE.MeshStandardMaterial({color:sp.pants,roughness:.85}),
+    skin:new THREE.MeshStandardMaterial({color:sp.skin,roughness:.7}),hair:new THREE.MeshStandardMaterial({color:sp.hair,roughness:.9}),
+    shoe:new THREE.MeshStandardMaterial({color:0x111111,roughness:.6}),hat:new THREE.MeshStandardMaterial({color:sp.hatColor||0x222222,roughness:.6})};
+  const orig={}; Object.keys(mats).forEach(k=>orig[k]=mats[k].color.clone());
+  const legs=[-.1,.1].map(x=>{ const p=new THREE.Group(); p.position.set(x,.95,0); g.add(p); box(.14,.9,.16,mats.pants,0,-.45,0,p); box(.15,.08,.26,mats.shoe,0,-.91,.05,p); return p; });
+  const torso=box(.46,.64,.25,mats.shirt,0,1.28,0,g);
+  const arms=[-1,1].map(s=>{ const p=new THREE.Group(); p.position.set(s*.3,1.56,0); g.add(p); box(.12,.6,.14,mats.shirt,0,-.3,0,p);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.06,10,8),mats.skin); hand.position.y=-.64; p.add(hand); return p; });
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.06,.07,.1,10),mats.skin); neck.position.y=1.64; g.add(neck);
+  const faceT=canvasTex(128,128,(c,w,h)=>drawFace(c,w,h,sp,false));
+  const faceMat=new THREE.MeshStandardMaterial({map:faceT,roughness:.7});
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.27,.31,.27),[mats.skin,mats.skin,mats.hair,mats.skin,faceMat,mats.hair]); head.position.y=1.85; g.add(head);
+  if(sp.long){ const lh=new THREE.Mesh(new THREE.BoxGeometry(.29,.38,.08),mats.hair); lh.position.set(0,-.08,-.12); head.add(lh); }
+  if(sp.hat==='cap'){ const c=new THREE.Mesh(new THREE.BoxGeometry(.29,.08,.29),mats.hat); c.position.y=.17; head.add(c); const b=new THREE.Mesh(new THREE.BoxGeometry(.25,.02,.14),mats.hat); b.position.set(0,.14,.19); head.add(b); }
+  if(sp.hat==='helmet'){ const c=new THREE.Mesh(new THREE.SphereGeometry(.18,14,8,0,Math.PI*2,0,Math.PI/2),mats.hat); c.position.y=.1; head.add(c); }
+  if(sp.hat==='hood'){ const c=new THREE.Mesh(new THREE.BoxGeometry(.33,.37,.31),mats.hat); c.position.set(0,.03,-.03); head.add(c); const f=new THREE.Mesh(new THREE.PlaneGeometry(.25,.29),faceMat); f.position.z=.156; c.add(f); }
+  const badge=plane(.09,.11,new THREE.MeshBasicMaterial({color:0xe8e8e0}),.12,1.42,.127,0,g);
+  const tent=makeTendrils(6,.2,new THREE.MeshStandardMaterial({color:0x0b0c0e,roughness:.6}),[0,1.5,-.12],1.5); tent.group.visible=false; g.add(tent.group);
+  const glow=new THREE.PointLight(0xff1a2e,0,2.5,2); glow.position.set(0,1.85,.4); g.add(glow);
+  g.userData={legs,arms,head,torso,faceT,mats,orig,tent,glow,sp,phase:0};
+  return g;
+}
+
+/* --- o Espreitador: aparece na janela da sala de servidores --- */
+function makePeeker(){
+  const g=new THREE.Group(); const skin=new THREE.MeshBasicMaterial({color:0x020203});
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(.19,14,10),skin); skull.scale.set(1,.85,1.15); g.add(skull);
+  for(let i=0;i<9;i++){ const c=new THREE.Mesh(new THREE.ConeGeometry(.018,rnd(.15,.32),4),skin); c.position.set(rnd(-.06,.1),.13,rnd(-.16,.16)); c.rotation.set(rnd(-.6,.6),0,rnd(-.7,.7)); g.add(c); }
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(.01,.02,.16),new THREE.MeshBasicMaterial({color:0xff3010})); mouth.position.set(-.19,-.08,0); g.add(mouth);
+  const eyes=[]; [[.07,.05],[-.07,.03],[.02,-.06],[-.1,-.07]].forEach(([z,y])=>{ const m=new THREE.MeshBasicMaterial({color:0xff1a2e}); const e=new THREE.Mesh(new THREE.SphereGeometry(.026,8,6),m); e.position.set(-.2,y,z); g.add(e); eyes.push(m); });
+  [-.26,.26].forEach(z=>{ box(.1,.03,.1,skin,-.18,-.18,z,g); for(let f=0;f<4;f++){ const fg=box(.15,.018,.018,skin,-.3,-.19,z-.04+f*.027,g); fg.rotation.z=-.35; } });
+  const light=new THREE.PointLight(0xff1a2e,0,2,2); light.position.set(-.4,0,0); g.add(light);
+  g.scale.setScalar(1.6); g.position.set(3.5,.3,-.2); g.userData={eyes,light}; return g;
+}
+const PEEK=makePeeker(); scene.add(PEEK);
+
+/* --- pôster da dupla (clicável) na parede da direita --- */
+const posterTex=new THREE.TextureLoader().load(window.TEX_POSTER||''); posterTex.encoding=THREE.sRGBEncoding; posterTex.anisotropy=4;
+const posterMat=new THREE.MeshStandardMaterial({map:posterTex,roughness:.8,emissive:0x000000});
+const posterG=new THREE.Group(); posterG.position.set(2.97,1.5,-1.8); posterG.rotation.y=-Math.PI/2; scene.add(posterG);
+box(.7,.97,.025,M.black,0,0,-.014,posterG);
+const posterMesh=new THREE.Mesh(new THREE.PlaneGeometry(.64,.906),posterMat); posterMesh.name='poster'; posterG.add(posterMesh);
+let posterWob=0;
+
+/* --- animatrônicos da dupla (ENASN) --- */
+function shellDraw(g,w,h,base){
+  g.fillStyle=base; g.fillRect(0,0,w,h);
+  for(let i=0;i<600;i++){ g.fillStyle=`rgba(0,0,0,${rnd(.03,.13)})`; g.fillRect(rnd(0,w),rnd(0,h),rnd(1,4),rnd(1,4)); }
+  for(let i=0;i<16;i++){ g.fillStyle=Math.random()<.5?'rgba(200,170,130,.5)':'rgba(60,30,18,.55)'; g.beginPath(); const x=rnd(0,w),y=rnd(0,h); g.moveTo(x,y); for(let k=0;k<7;k++) g.lineTo(x+rnd(-28,28),y+rnd(-28,28)); g.fill(); }
+  g.strokeStyle='rgba(25,12,6,.75)'; g.lineWidth=1.6; for(let i=0;i<24;i++){ g.beginPath(); let x=rnd(0,w),y=rnd(0,h); g.moveTo(x,y); for(let k=0;k<5;k++){ x+=rnd(-24,24); y+=rnd(-24,24); g.lineTo(x,y);} g.stroke(); }
+}
+const AM={ red:new THREE.MeshStandardMaterial({map:canvasTex(256,256,(g,w,h)=>shellDraw(g,w,h,'#8c2a1f')),roughness:.72}),
+  cream:new THREE.MeshStandardMaterial({map:canvasTex(256,256,(g,w,h)=>shellDraw(g,w,h,'#b9a284')),roughness:.8}),
+  tan:new THREE.MeshStandardMaterial({map:canvasTex(256,256,(g,w,h)=>shellDraw(g,w,h,'#a5713e')),roughness:.75}),
+  endo:new THREE.MeshStandardMaterial({color:0x3b342e,roughness:.45,metalness:.75}),
+  hair:new THREE.MeshStandardMaterial({color:0x1c120c,roughness:.95}),
+  chest:new THREE.MeshStandardMaterial({map:canvasTex(256,256,(g,w,h)=>{ shellDraw(g,w,h,'#8c2a1f'); g.fillStyle='rgba(235,225,210,.9)'; g.font='bold 34px Arial'; g.textAlign='center'; g.fillText('SESI',w*.68,h*.42); g.fillText('SENAI',w*.68,h*.58); }),roughness:.72}),
+  grille:new THREE.MeshStandardMaterial({map:canvasTex(128,128,(g,w,h)=>{ shellDraw(g,w,h,'#b9a284'); g.fillStyle='#2a221c'; g.beginPath(); g.arc(64,64,36,0,7); g.fill(); g.fillStyle='#0c0a08'; for(let y=36;y<96;y+=7) for(let x=36;x<96;x+=7) if(Math.hypot(x-64,y-64)<31){ g.beginPath(); g.arc(x,y,2.2,0,7); g.fill(); } }),roughness:.8}) };
+const wireMats=[0xcc3322,0xe8c23a,0x3a7bd5,0x2e9d4f,0xd9772b].map(c=>new THREE.MeshBasicMaterial({color:c}));
+function cyl(rt,rb,h,mat,x,y,z,parent){ const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,12),mat); m.position.set(x,y,z); parent.add(m); return m; }
+function ball(r,mat,x,y,z,parent){ const m=new THREE.Mesh(new THREE.SphereGeometry(r,12,8),mat); m.position.set(x,y,z); parent.add(m); return m; }
+function wires(parent,x,y,z,n,len){ for(let i=0;i<n;i++){ const w=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,len*rnd(.7,1.3),4),wireMats[i%wireMats.length]); w.position.set(x+rnd(-.05,.05),y+rnd(-.03,.03),z+rnd(-.03,.03)); w.rotation.set(rnd(-.5,.5),0,rnd(-.5,.5)); parent.add(w); } }
+function makeAnimatronic(faceURI,curly){
+  const g=new THREE.Group();
+  const legs=[-.13,.13].map(x=>{ const hip=new THREE.Group(); hip.position.set(x,1.0,0); g.add(hip);
+    cyl(.1,.085,.46,AM.cream,0,-.23,0,hip); ball(.065,AM.endo,0,-.48,0,hip); wires(hip,0,-.46,.05,3,.14);
+    const knee=new THREE.Group(); knee.position.y=-.5; hip.add(knee);
+    cyl(.085,.07,.42,AM.cream,0,-.21,0,knee); ball(.05,AM.endo,0,-.44,0,knee); box(.15,.08,.27,AM.cream,0,-.48,.05,knee);
+    return {hip,knee}; });
+  box(.42,.18,.26,AM.cream,0,1.04,0,g);
+  cyl(.12,.12,.14,AM.endo,0,1.18,0,g); wires(g,0,1.18,.09,7,.18);
+  const belly=cyl(.21,.19,.24,AM.cream,0,1.36,0,g);
+  const gr=new THREE.Mesh(new THREE.CircleGeometry(.09,20),AM.grille); gr.position.set(0,1.36,.205); g.add(gr);
+  const chest=new THREE.Mesh(new THREE.BoxGeometry(.58,.42,.34),[AM.red,AM.red,AM.red,AM.cream,AM.chest,AM.red]); chest.position.y=1.68; g.add(chest);
+  const arms=[-1,1].map(s=>{ ball(.13,AM.red,s*.36,1.8,0,g);
+    const shoulder=new THREE.Group(); shoulder.position.set(s*.36,1.8,0); g.add(shoulder);
+    cyl(.075,.068,.36,AM.red,0,-.2,0,shoulder); ball(.06,AM.endo,0,-.4,0,shoulder); wires(shoulder,0,-.4,.04,3,.12);
+    const fore=new THREE.Group(); fore.position.y=-.42; shoulder.add(fore);
+    cyl(.068,.06,.32,AM.red,0,-.16,0,fore);
+    const hand=new THREE.Group(); hand.position.y=-.36; fore.add(hand);
+    box(.11,.12,.05,AM.tan,0,0,0,hand);
+    for(let f=0;f<4;f++){ const fg=cyl(.017,.015,.1,AM.tan,-.04+f*.027,-.1,0,hand); }
+    cyl(.018,.016,.08,AM.tan,s*.065,-.03,.02,hand).rotation.z=s*.6;
+    return {shoulder,fore,hand}; });
+  cyl(.05,.06,.16,AM.endo,0,1.96,0,g); wires(g,0,1.96,.05,6,.14);
+  const head=new THREE.Group(); head.position.y=2.15; g.add(head);
+  const faceT=new THREE.TextureLoader().load(faceURI||''); faceT.encoding=THREE.sRGBEncoding;
+  const faceMat=new THREE.MeshStandardMaterial({map:faceT,roughness:.7,emissive:0xffffff,emissiveMap:faceT,emissiveIntensity:.12});
+  const skull=new THREE.Mesh(new THREE.BoxGeometry(.3,.34,.3),[AM.tan,AM.tan,curly?AM.hair:AM.tan,AM.tan,faceMat,AM.tan]); head.add(skull);
+  [-1,1].forEach(s=>{ const e=cyl(.055,.055,.035,AM.tan,s*.165,0,-.01,head); e.rotation.z=Math.PI/2; });
+  if(curly){ for(let i=0;i<46;i++){ const a=rnd(0,Math.PI*2), b=rnd(0,1.2); ball(rnd(.04,.058),AM.hair,Math.cos(a)*.15*Math.sin(b+.4),.15+Math.cos(b)*.06,Math.sin(a)*.15*Math.sin(b+.4)-.02,head); } }
+  else { box(.32,.07,.31,AM.hair,0,.19,-.005,head); box(.32,.2,.04,AM.hair,0,.08,-.16,head); }
+  const light=new THREE.PointLight(0xffb070,.7,2.4,2); light.position.set(0,0,.5); head.add(light);
+  g.scale.setScalar(.88); g.visible=false;
+  g.userData={legs,arms,head,light,phase:rnd(0,3)};
+  return g;
+}
+const ANIM=[makeAnimatronic(window.TEX_ROSTO1,true),makeAnimatronic(window.TEX_ROSTO2,false)];
+ANIM.forEach(a=>scene.add(a));
+const NULLM=makeNull(); NULLM.visible=false; scene.add(NULLM);
+function placeNullAtDoor(){ NULLM.position.set(-3.75,0,.25); NULLM.rotation.set(0,Math.PI/2,0); }
+placeNullAtDoor();
+
+/* ---------- texturas dinâmicas ---------- */
+function fmtClock(t){ const m=Math.floor(Math.min(t,NIGHT)/NIGHT*360); return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function drawCRT(){
+  const {g}=crtTex.userData, w=512,h=384;
+  if(G.blackout){ g.fillStyle='#000'; g.fillRect(0,0,w,h); crtTex.needsUpdate=true; return; }
+  g.fillStyle='#03150b'; g.fillRect(0,0,w,h);
+  const grd=g.createRadialGradient(w/2,h/2,40,w/2,h/2,320); grd.addColorStop(0,'rgba(60,255,150,.10)'); grd.addColorStop(1,'rgba(0,0,0,.6)'); g.fillStyle=grd; g.fillRect(0,0,w,h);
+  g.fillStyle='#57ff9a'; g.font='bold 26px monospace'; g.fillText('CENTRAL CASA CONECTADA',24,46);
+  g.font='22px monospace'; g.fillStyle='#9fe8bd';
+  g.fillText('HORA  '+fmtClock(G.t)+'     ENERGIA '+Math.max(0,G.energy|0)+'%',24,88);
+  const al=DEVICES.filter(d=>d.state==='alert').length, cp=compCount();
+  g.fillStyle=al?'#ffb547':'#9fe8bd'; g.fillText('ALERTAS ATIVOS ..... '+al,24,130);
+  g.fillStyle=cp?'#ff3047':'#9fe8bd'; g.fillText('INVADIDOS .......... '+cp,24,162);
+  g.fillStyle='#9fe8bd'; g.fillText('PROTEGIDOS ......... '+DEVICES.filter(d=>d.state==='secured'||d.state==='cleared').length+'/'+DEVICES.length,24,194);
+  g.fillStyle=G.stage>=3?'#ff3047':'#557a66'; g.fillText('SINAL DESCONHECIDO .. '+['---','REDE','CASA','CORREDOR','PORTA!'][Math.min(G.stage,4)],24,236);
+  if(Math.floor(performance.now()/500)%2){ g.fillStyle='#57ff9a'; g.fillRect(24,284,464,46); g.fillStyle='#03150b'; g.font='bold 22px monospace'; g.fillText('CLIQUE / ESPAÇO: CÂMERAS',62,315); }
+  for(let y=0;y<h;y+=3){ g.fillStyle='rgba(0,0,0,.22)'; g.fillRect(0,y,w,1); }
+  crtTex.needsUpdate=true;
+}
+function drawClock(){
+  const {g}=clockTex.userData; g.fillStyle='#070303'; g.fillRect(0,0,256,96);
+  g.fillStyle=G.blackout?'#1a0505':'#ff2a3a'; g.shadowColor='#ff2a3a'; g.shadowBlur=G.blackout?0:16; g.font='bold 64px monospace'; g.textAlign='center'; g.fillText(fmtClock(G.t),128,70); g.shadowBlur=0; g.textAlign='left';
+  clockTex.needsUpdate=true;
+}
+function drawSmalls(){
+  smalls.forEach(s=>{const img=s.g.createImageData(80,60), d=img.data; const on=!G.blackout;
+    for(let i=0;i<d.length;i+=4){const v=on?Math.random()*.55:0; d[i]=v*s.tint[0]; d[i+1]=v*s.tint[1]; d[i+2]=v*s.tint[2]; d[i+3]=255;}
+    s.g.putImageData(img,0,0); s.t.needsUpdate=true;});
+}
+
+/* =========================================================
+   CÂMERAS (feed 2D desenhado no canvas)
+   ========================================================= */
+const feed=document.getElementById('feed'), fg=feed.getContext('2d');
+const FW=feed.width, FH=feed.height;
+const noiseFrames=[...Array(6)].map(()=>{const c=document.createElement('canvas');c.width=FW/2;c.height=FH/2;const g=c.getContext('2d');const img=g.createImageData(c.width,c.height);for(let i=0;i<img.data.length;i+=4){const v=Math.random()*255;img.data[i]=v*.7;img.data[i+1]=v;img.data[i+2]=v*.8;img.data[i+3]=255;}g.putImageData(img,0,0);return c;});
+let staticUntil=0;
+const FURN={
+  quarto(g,b){ g.fillStyle='#1c2a24'; g.fillRect(b.x+b.w*.05,b.y+b.h*.62,b.w*.55,b.h*.38); g.fillStyle='#24362e'; g.fillRect(b.x+b.w*.05,b.y+b.h*.55,b.w*.14,b.h*.2);
+    g.fillStyle='#0d1714'; g.fillRect(b.x+b.w*.68,b.y+b.h*.12,b.w*.22,b.h*.35); g.strokeStyle='#2b4339'; g.strokeRect(b.x+b.w*.68,b.y+b.h*.12,b.w*.22,b.h*.35); },
+  corredor(g,b){ for(let i=0;i<3;i++){ const s=1-i*.25; g.strokeStyle=`rgba(120,200,160,${.25-i*.06})`; g.strokeRect(FW/2-b.w*.35*s,b.y+b.h*(1-s)*.5,b.w*.7*s,b.h*s);}
+    g.fillStyle='#0a110e'; g.fillRect(FW/2-30,b.y+b.h*.35,60,b.h*.65); },
+  escritorio(g,b){ g.fillStyle='#1d2b25'; g.fillRect(b.x+b.w*.25,b.y+b.h*.6,b.w*.6,b.h*.08); g.fillRect(b.x+b.w*.28,b.y+b.h*.68,b.w*.04,b.h*.32); g.fillRect(b.x+b.w*.78,b.y+b.h*.68,b.w*.04,b.h*.32);
+    g.fillStyle='#0f1a16'; g.fillRect(b.x+b.w*.3,b.y+b.h*.35,b.w*.2,b.h*.25); },
+  sala(g,b){ g.fillStyle='#1c2a24'; g.fillRect(b.x-20,b.y+b.h*.7,b.w*.6,b.h*.3+30); g.fillStyle='#24362e'; g.fillRect(b.x-20,b.y+b.h*.6,b.w*.6,b.h*.12);
+    g.fillStyle='#0b1411'; g.fillRect(b.x+b.w*.35,b.y+b.h*.25,b.w*.3,b.h*.3); g.strokeStyle='#2e4a3e'; g.strokeRect(b.x+b.w*.35,b.y+b.h*.25,b.w*.3,b.h*.3); },
+  cozinha(g,b){ g.fillStyle='#22332c'; g.fillRect(b.x+b.w*.15,b.y+b.h*.05,b.w*.24,b.h*.95); g.strokeStyle='#33503f'; g.strokeRect(b.x+b.w*.15,b.y+b.h*.05,b.w*.24,b.h*.95); g.beginPath(); g.moveTo(b.x+b.w*.15,b.y+b.h*.38); g.lineTo(b.x+b.w*.39,b.y+b.h*.38); g.stroke();
+    g.fillStyle='#1a2722'; g.fillRect(b.x+b.w*.45,b.y+b.h*.6,b.w*.55,b.h*.4); },
+  lavanderia(g,b){ g.fillStyle='#22332c'; g.fillRect(b.x+b.w*.1,b.y+b.h*.45,b.w*.25,b.h*.55); g.strokeStyle='#3b5a4b'; g.lineWidth=3; g.beginPath(); g.arc(b.x+b.w*.225,b.y+b.h*.72,b.h*.13,0,7); g.stroke(); g.lineWidth=1; },
+  entrada(g,b){ g.fillStyle='#1f2e27'; g.fillRect(b.x+b.w*.38,b.y+b.h*.1,b.w*.3,b.h*.9); g.strokeStyle='#36574a'; g.strokeRect(b.x+b.w*.38,b.y+b.h*.1,b.w*.3,b.h*.9);
+    g.fillStyle='#152019'; g.fillRect(b.x+b.w*.1,b.y+b.h*.85,b.w*.8,b.h*.1); },
+  garagem(g,b){ g.fillStyle='#1b2823'; g.fillRect(b.x+b.w*.15,b.y+b.h*.05,b.w*.7,b.h*.8); for(let i=0;i<8;i++){g.fillStyle='#24362e';g.fillRect(b.x+b.w*.15,b.y+b.h*(.08+i*.1),b.w*.7,3);}
+    g.fillStyle='#0a110e'; g.beginPath(); g.ellipse(b.x+b.w*.5,b.y+b.h*1.02,b.w*.45,b.h*.18,0,Math.PI,0); g.fill(); }
+};
+function nullIn(room){
+  return (G.stage===1&&room==='escritorio')||(G.stage===2&&G.nullRoom===room)||(G.stage===3&&room==='corredor');
+}
+function drawNull2D(g,x,y,s){
+  g.save(); g.translate(x+rnd(-3,3),y); g.scale(s,s);
+  g.fillStyle='#010302';
+  g.fillRect(-26,-210,52,46);                  // cabeça
+  g.beginPath(); g.moveTo(-34,-160); g.lineTo(34,-160); g.lineTo(22,-70); g.lineTo(-22,-70); g.fill(); // tronco
+  g.fillRect(-18,-72,10,72); g.fillRect(8,-72,10,72);   // pernas
+  g.fillRect(-46,-155,8,110); g.fillRect(38,-155,8,110); // braços
+  g.strokeStyle='#020403'; g.lineWidth=3;
+  for(let i=0;i<9;i++){ g.beginPath(); const sx=rnd(-28,28); g.moveTo(sx,-150); g.quadraticCurveTo(sx+rnd(-20,20),-110,sx+rnd(-15,15),-60+rnd(0,40)); g.stroke(); }
+  for(let i=0;i<7;i++){ g.beginPath(); const sx=rnd(-30,30); g.moveTo(sx,-150); g.bezierCurveTo(sx+rnd(-50,50),-210,sx+rnd(-80,80),-240,sx+rnd(-90,90),-235+rnd(-30,30)); g.stroke(); }
+  g.shadowColor='#ff1a2e'; g.shadowBlur=24; g.fillStyle='#ff2a3e'; g.beginPath(); g.arc(6,-188,6,0,7); g.fill();
+  [[-12,-196,2.5],[16,-200,2],[-4,-178,2],[18,-180,2.5],[-2,-140,3],[-14,-122,2],[12,-110,2]].forEach(([a,b,r])=>{ if(Math.random()>.1){ g.beginPath(); g.arc(a,b,r,0,7); g.fill(); } });
+  g.fillStyle='#ff5020'; g.fillRect(-12,-172,24,3+Math.random()*3);
+  g.restore();
+}
+// Hospedeiro: visitante corrompido, aparece nas câmeras dos aparelhos que ele corrompeu
+function drawHost2D(g,x,y,s){
+  g.save(); g.translate(x+rnd(-2,2),y); g.scale(s,s); g.fillStyle='#020403';
+  g.fillRect(-17,-82,11,82); g.fillRect(6,-82,11,82);
+  g.beginPath(); g.moveTo(-30,-172); g.lineTo(32,-166); g.lineTo(22,-80); g.lineTo(-22,-80); g.fill();
+  g.save(); g.translate(-34,-168); g.rotate(.1); g.fillRect(-5,0,9,150); g.restore();
+  g.save(); g.translate(32,-164); g.rotate(-.14); g.fillRect(-4,0,9,160); g.restore();
+  g.strokeStyle='#020403'; g.lineWidth=3; for(let i=0;i<6;i++){ g.beginPath(); g.moveTo(rnd(-20,20),-165); g.quadraticCurveTo(rnd(-60,60),-230,rnd(-70,70),-250+rnd(0,40)); g.stroke(); }
+  g.save(); g.translate(0,-172); g.rotate(.55); g.fillRect(-4,-44,8,44); g.translate(0,-44);
+  g.fillRect(-17,-32,34,32);
+  g.shadowColor='#ff2a3e'; g.shadowBlur=20; g.fillStyle='#ff2a3e';
+  g.fillRect(-2,-32,3,32); [[-9,-21,3.5],[9,-15,3],[4,-26,2],[-12,-8,2]].forEach(([a,b,r])=>{g.beginPath();g.arc(a,b,r,0,7);g.fill();});
+  g.fillRect(-11,-6,22,3);
+  g.restore(); g.restore();
+}
+function drawPeeker2D(g,x,y,s){
+  g.save(); g.translate(x,y); g.scale(s,s); g.fillStyle='#020403';
+  g.fillRect(-40,-60,80,64);
+  [-1,1].forEach(d=>{ g.fillRect(d*70-14,0,28,8); for(let f=0;f<4;f++) g.fillRect(d*70-14+f*8,6,4,18); });
+  g.shadowColor='#ff2a3e'; g.shadowBlur=16; g.fillStyle='#ff2a3e';
+  [[-18,-34,5],[16,-38,5],[-6,-18,3],[24,-16,3]].forEach(([a,b,r])=>{g.beginPath();g.arc(a,b,r,0,7);g.fill();});
+  g.restore();
+}
+function drawFeed(){
+  const room=G.curRoom, g=fg;
+  g.fillStyle='#08110d'; g.fillRect(0,0,FW,FH);
+  const b={x:FW*.2,y:FH*.16,w:FW*.6,h:FH*.52};
+  g.fillStyle='#132019'; g.fillRect(b.x,b.y,b.w,b.h);
+  g.fillStyle='#0c1611'; g.beginPath(); g.moveTo(0,FH); g.lineTo(b.x,b.y+b.h); g.lineTo(b.x+b.w,b.y+b.h); g.lineTo(FW,FH); g.fill();
+  g.fillStyle='#0a130f'; g.beginPath(); g.moveTo(0,0); g.lineTo(b.x,b.y); g.lineTo(b.x+b.w,b.y); g.lineTo(FW,0); g.fill();
+  g.strokeStyle='rgba(140,255,190,.13)'; g.lineWidth=1.5;
+  [[0,0,b.x,b.y],[FW,0,b.x+b.w,b.y],[0,FH,b.x,b.y+b.h],[FW,FH,b.x+b.w,b.y+b.h]].forEach(l=>{g.beginPath();g.moveTo(l[0],l[1]);g.lineTo(l[2],l[3]);g.stroke();});
+  g.strokeRect(b.x,b.y,b.w,b.h);
+  (FURN[room]||(()=>{}))(g,b);
+  // NULL na câmera
+  if(nullIn(room)){
+    if(room==='corredor') drawNull2D(g,FW/2,b.y+b.h*.95,.75);
+    else drawNull2D(g,FW*.36,FH*.93,1.25);
+  }
+  if(G.hosts.includes(room)) drawHost2D(g,FW*.66,FH*.97,1.15);
+  // dispositivos
+  DEVICES.filter(d=>d.room===room).forEach(d=>{
+    const x=d.fx*FW, y=d.fy*FH, col={idle:'#57ff9a',alert:'#ffb547',compromised:'#ff3047',secured:'#57ff9a',cleared:'#57ff9a'}[d.state];
+    const pulse=(d.state==='alert'||d.state==='compromised')?(Math.sin(performance.now()/120)*.5+.5):.3;
+    g.save(); g.shadowColor=col; g.shadowBlur=10+pulse*20; g.strokeStyle=col; g.lineWidth=2+(d===G.curDev?2:0);
+    g.beginPath(); g.arc(x,y,26,0,7); g.stroke(); g.restore();
+    g.font='26px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(d.icon,x,y+1);
+    g.font='bold 13px Chakra Petch, sans-serif'; g.fillStyle='rgba(0,0,0,.6)'; const tw=g.measureText(d.name).width+10; g.fillRect(x-tw/2,y+31,tw,18);
+    g.fillStyle=col; g.fillText(d.name,x,y+41); g.textAlign='left'; g.textBaseline='alphabetic';
+  });
+  // ruído + interferência
+  const glitchy=nullIn(room)||G.hosts.includes(room)||performance.now()<staticUntil;
+  g.globalAlpha=glitchy?.38:.11; g.drawImage(noiseFrames[(Math.random()*6)|0],0,0,FW,FH); g.globalAlpha=1;
+  if(glitchy){ for(let i=0;i<4;i++){const y=rnd(0,FH),h=rnd(4,22); g.drawImage(feed,0,y,FW,h,rnd(-24,24),y,FW,h);} }
+  if(performance.now()<staticUntil){ g.globalAlpha=.85; g.drawImage(noiseFrames[(Math.random()*6)|0],0,0,FW,FH); g.globalAlpha=1; }
+  for(let y=0;y<FH;y+=3){ g.fillStyle='rgba(0,0,0,.18)'; g.fillRect(0,y,FW,1); }
+  const vg=g.createRadialGradient(FW/2,FH/2,FH*.35,FW/2,FH/2,FW*.62); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.75)'); g.fillStyle=vg; g.fillRect(0,0,FW,FH);
+  g.font='28px VT323, monospace'; g.fillStyle='#dfffe9';
+  g.fillText(ROOMS[room].cam+' · '+ROOMS[room].name.toUpperCase(),16,32);
+  g.fillText(fmtClock(G.t),FW-82,FH-14);
+  if(Math.floor(performance.now()/600)%2){ g.fillStyle='#ff3047'; g.beginPath(); g.arc(22,FH-22,7,0,7); g.fill(); g.fillStyle='#dfffe9'; g.fillText('REC',36,FH-13); }
+}
+
+/* =========================================================
+   INTERFACE DO TABLET
+   ========================================================= */
+const $=id=>document.getElementById(id);
+const tablet=$('tablet');
+function openTablet(){
+  if(!G.running||G.blackout||G.over||G.vPause||G.trans) return;
+  if(G.anim&&G.anim.phase!=='walk'){ toast('Não dá tempo de olhar as câmeras!','red'); return; }
+  G.tabletOpen=true; tablet.classList.remove('closed'); document.body.classList.add('tabopen'); tablet.setAttribute('aria-hidden','false');
+  A.static(); staticUntil=performance.now()+220; $('hint').style.opacity=0;
+  if(!G.curDev||G.curDev.state==='secured'||G.curDev.state==='cleared'||G.curDev.state==='idle'){
+    const a=activeAlerts()[0]; if(a){ G.curDev=a; G.curRoom=a.room; } else if(!G.curDev) G.curDev=DEVICES.find(d=>d.room===G.curRoom);
+  }
+  renderTablet();
+}
+function closeTablet(){ G.tabletOpen=false; tablet.classList.add('closed'); document.body.classList.remove('tabopen'); tablet.setAttribute('aria-hidden','true'); A.click(); }
+function toggleTablet(){ G.tabletOpen?closeTablet():openTablet(); }
+function selectRoom(r){ if(r==='seguranca') return; if(G.curRoom!==r){ G.curRoom=r; A.static(); staticUntil=performance.now()+200; }
+  const list=DEVICES.filter(d=>d.room===r); if(!G.curDev||G.curDev.room!==r) G.curDev=list.find(d=>d.state==='alert'||d.state==='compromised')||list[0]; renderTablet(); }
+function selectDev(id){ const d=DEV[id]; G.curDev=d; if(G.curRoom!==d.room){ G.curRoom=d.room; A.static(); staticUntil=performance.now()+200; } renderTablet(); }
+
+function renderAlerts(){
+  const act=activeAlerts().sort((a,b)=>(a.state==='alert'?a.deadline:1e9)-(b.state==='alert'?b.deadline:1e9));
+  $('alCount').textContent=act.length?act.length:'';
+  $('alerts').innerHTML = act.length? act.map(d=>{
+    const left=Math.max(0,Math.ceil(d.deadline-G.t));
+    return `<button class="al ${d.state==='compromised'?'comp':''}" data-dev="${d.id}"><span class="ic">${d.icon}</span><span>${d.name}<small>${ROOMS[d.room].name}</small></span><span class="tm">${d.state==='compromised'?'INVADIDO':left+'s'}</span></button>`;
+  }).join('') : '<div class="noal">Nenhum alerta agora. Fique de olho nas câmeras.</div>';
+}
+function renderMap(){
+  $('map').innerHTML = Object.keys(ROOMS).map(r=>{
+    if(r==='seguranca') return `<div class="rm you" style="grid-area:${r}"><span class="cam">VOCÊ</span><span>Sala de segurança<br><small style="color:${G.door.closed>0?'#57ff9a':'#ff8a98'}">${G.door.closed>0?'porta trancada':'porta aberta'}</small></span></div>`;
+    const ds=DEVICES.filter(d=>d.room===r);
+    return `<button class="rm ${G.curRoom===r?'on':''}" style="grid-area:${r}" data-room="${r}"><span class="cam">${ROOMS[r].cam}</span><span>${ROOMS[r].name}</span><span class="dots">${ds.map(d=>`<i class="dot ${d.state}"></i>`).join('')}</span></button>`;
+  }).join('');
+}
+function stateLabel(s){ return {idle:'monitorando',alert:'alerta',compromised:'invadido',secured:'protegido',cleared:'seguro (falso alarme)'}[s]; }
+function renderDev(){
+  const area=$('devArea'); const list=DEVICES.filter(d=>d.room===G.curRoom); const d=G.curDev;
+  let h=`<div id="devTabs">${list.map(x=>`<button class="dt ${x===d?'on':''}" data-dev="${x.id}">${x.icon} ${x.name} <i class="dot ${x.state}"></i></button>`).join('')}</div>`;
+  if(!d){ area.innerHTML=h; return; }
+  h+=`<div class="card"><div class="dhead"><h3>${d.icon} ${d.name}</h3><span class="badge">${d.proto}</span><span class="badge ${d.state}">${stateLabel(d.state)}</span></div>`;
+  if(d.state==='idle'){
+    h+=`<p class="muted" style="margin:10px 0 0">Nenhum alerta. Tráfego normal na rede ${d.proto}. Os alertas aparecem sozinhos durante a noite: fique atento.</p>`;
+  } else if(d.state==='secured'||d.state==='cleared'){
+    h+=`<div class="fb good">✔ ${d.state==='cleared'?'Falso alarme identificado corretamente.':'Dispositivo protegido.'} +${d.points} pts${d.wasComp?' (recuperado depois da invasão)':''}</div>
+    <dl class="sum"><dt>Vulnerabilidade</dt><dd>${VULNS[d.vuln]}</dd>${d.threat?`<dt>Ameaça</dt><dd>${THREATS[d.threat]}</dd><dt>Proteção</dt><dd>${d.fixes.find(f=>f.ok).t}</dd>`:''}</dl>
+    <p class="muted" style="margin:10px 0 0">💡 ${d.explain}</p>`;
+  } else {
+    const left=Math.max(0,Math.ceil(d.deadline-G.t));
+    h+= d.state==='compromised'
+      ? `<div class="alertline red">⛔ INVADIDO: ${d.alert}. O NULL usa este aparelho para avançar. Corrija para expulsá-lo!</div>`
+      : `<div class="alertline">⚠ ${d.alert} <span id="devLeft" style="font-family:var(--mono);font-size:22px;color:var(--amber)">· ${left}s</span></div>`;
+    h+=`<div class="logs">${d.logs.map((l,i)=>`[${String(i+1).padStart(2,'0')}] ${l}`).join('\n')}</div>`;
+    const totalSteps=d.vuln==='nenhuma'?1:3;
+    h+=`<div class="steps">${[0,1,2].slice(0,Math.max(totalSteps,d.step+1)>1?3:1).map(i=>`<i class="${i<d.step?'ok':i===d.step?'cur':''}"></i>`).join('')}</div>`;
+    if(d.step===0){
+      h+=`<div class="q">1. Qual é a vulnerabilidade? <small>A falha ou ponto fraco que deixou isso acontecer. Leia os logs.</small></div><div class="opts">`+
+        Object.entries(VULNS).map(([k,v])=>`<button class="opt" data-ans="vuln:${k}" ${d.tries.vuln.includes(k)?'disabled':''}>${v}</button>`).join('')+'</div>';
+    } else if(d.step===1){
+      h+=`<div class="q">2. Qual ameaça está explorando essa falha? <small>Vulnerabilidade: ${VULNS[d.vuln]} ✔</small></div><div class="opts">`+
+        Object.entries(THREATS).map(([k,v])=>`<button class="opt" data-ans="threat:${k}" ${d.tries.threat.includes(k)?'disabled':''}>${v}<br><small style="color:var(--muted)">${THREAT_DEF[k]}</small></button>`).join('')+'</div>';
+    } else {
+      h+=`<div class="q">3. Qual medida de proteção aplicar? <small>Ameaça: ${THREATS[d.threat]} ✔</small></div><div class="opts">`+
+        d.order.map(i=>`<button class="opt" data-ans="fix:${i}" ${d.tries.fix.includes(String(i))?'disabled':''}>${d.fixes[i].t}</button>`).join('')+'</div>';
+    }
+    if(d.feedback) h+=`<div class="fb ${d.feedback.ok?'good':'bad'}">${d.feedback.msg}</div>`;
+  }
+  h+='</div>';
+  area.innerHTML=h;
+}
+function renderTablet(){ if(!G.tabletOpen) return; renderAlerts(); renderMap(); renderDev(); }
+
+tablet.addEventListener('click',e=>{
+  const t=e.target.closest('[data-room],[data-dev],[data-ans]');
+  if(e.target===tablet){ closeTablet(); return; }
+  if(!t) return; A.click();
+  if(t.dataset.room) selectRoom(t.dataset.room);
+  else if(t.dataset.dev) selectDev(t.dataset.dev);
+  else if(t.dataset.ans){ const [k,v]=t.dataset.ans.split(':'); answer(G.curDev,k,v); }
+});
+$('closeTab').onclick=e=>{e.stopPropagation(); closeTablet();};
+
+/* =========================================================
+   LÓGICA DO DIAGNÓSTICO
+   ========================================================= */
+function answer(d,kind,key){
+  if(!d||!(d.state==='alert'||d.state==='compromised')) return;
+  let ok;
+  if(kind==='vuln') ok=key===d.vuln; else if(kind==='threat') ok=key===d.threat; else ok=!!d.fixes[+key].ok;
+  if(!ok){
+    d.tries[kind].push(key); A.bad();
+    let msg='';
+    if(kind==='vuln') msg=`✗ "${VULNS[key]}" não combina com os logs. (${VULN_DEF[key]}) Releia as pistas.`;
+    if(kind==='threat') msg=`✗ "${THREATS[key]}" não é o que está acontecendo aqui. Olhe o que o invasor fez.`;
+    if(kind==='fix') msg=`✗ ${d.fixes[+key].why}`;
+    d.feedback={ok:false,msg}; renderTablet(); return;
+  }
+  A.ok();
+  const wrong=d.tries[kind].length;
+  if(kind==='vuln'){
+    if(key==='nenhuma'){ d.points=Math.max(20,100-wrong*25); finish(d,'cleared'); return; }
+    d.points+=Math.max(5,40-wrong*15); d.step=1; d.feedback={ok:true,msg:`✔ Isso mesmo: ${VULN_DEF[key]}`};
+  } else if(kind==='threat'){
+    d.points+=Math.max(5,30-wrong*15); d.step=2; d.feedback={ok:true,msg:`✔ Ameaça identificada: ${THREAT_DEF[key]}`};
+  } else {
+    d.points+=Math.max(5,30-wrong*15); d.chosenFix=d.fixes[+key].t; finish(d,'secured'); return;
+  }
+  renderTablet();
+}
+function finish(d,st){
+  const wasComp=d.state==='compromised';
+  if(wasComp){ d.wasComp=true; d.points=Math.round(d.points/2); }
+  d.state=st; d.feedback=null; d.resolvedAt=G.t; G.score+=d.points;
+  const hi=G.hosts.indexOf(d.room); if(wasComp&&hi>=0){ G.hosts.splice(hi,1); toast('☣ Um Hospedeiro perdeu o controle do '+d.name+'.','blue'); }
+  toast(`${d.icon} ${d.name}: ${st==='cleared'?'falso alarme confirmado':'protegido'} (+${d.points})`,'');
+  if(wasComp && G.stage<4){
+    if(compCount()===0){ G.stage=0; G.nullRoom=null; G.nextCreep=1e9; toast('O NULL perdeu o acesso à casa e voltou para a Internet.','blue'); }
+    else { G.stage=Math.max(1,G.stage-1); if(G.stage===2) G.nullRoom=DEVICES.find(x=>x.state==='compromised').room; G.nextCreep=G.t+30; }
+  }
+  renderTablet();
+}
+function triggerAlert(d){
+  d.state='alert'; d.deadline=G.t+ALERT_TIME; A.alert();
+  toast(`⚠ ${d.icon} ${d.alert} (${ROOMS[d.room].name})`,'amber');
+  renderTablet();
+}
+function compromise(d){
+  d.state='compromised'; A.static(); A.bad();
+  toast(`⛔ ${d.icon} ${d.name} foi INVADIDO. O NULL entrou pela ${ROOMS[d.room].name.toLowerCase()}.`,'red');
+  flash(.35);
+  if(G.stage<2){ G.stage=2; G.nullRoom=d.room; G.nextCreep=G.t+30; }
+  else if(G.stage<4) advance();
+  renderTablet();
+}
+function advance(){
+  if(G.stage>=4||G.over||G.anim) return;
+  G.stage++;
+  if(G.stage===2){ const c=DEVICES.find(x=>x.state==='compromised'); G.nullRoom=c?c.room:'sala'; G.nextCreep=G.t+30; }
+  if(G.stage===3){ G.nullRoom='corredor'; G.nextCreep=G.t+12; toast('📡 Sinal desconhecido se movendo no CORREDOR (CAM 02)…','red'); A.step(); }
+  if(G.stage===4) startDoorAttack();
+}
+function startDoorAttack(){
+  G.door.attack=true; G.door.timer=9; G.nextCreep=1e9;
+  NULLM.visible=true; placeNullAtDoor(); $('doorWarn').classList.remove('hidden');
+  A.step(); setTimeout(()=>A.step(),350); A.breathe(); A.droneOn(); setTimeout(()=>A.whisper(),900);
+  if(G.tabletOpen) toast('⚠ Tem algo na porta da sala de segurança!','red');
+}
+function firewall(){
+  if(!G.running||G.over||G.blackout||G.vPause||G.trans) return;
+  if(G.doorRipped){ toast('🚪 Não tem mais porta… eles arrancaram.','red'); A.bad(); return; }
+  if(G.door.closed>0) return;
+  G.energy-=12; G.door.closed=6; A.slam();
+  $('btnFirewall').classList.add('cool');
+  if(G.door.attack) repel();
+  else toast('🛡️ Porta trancada por 6 s (−12% de energia).','');
+  renderTablet();
+}
+function repel(){
+  A.droneOff(); G.door.attack=false; $('doorWarn').classList.add('hidden');
+  G.stage=1; G.nullRoom='escritorio'; G.nextCreep=G.t+25;
+  toast('🛡️ Firewall ativado! O NULL foi empurrado de volta para o roteador.','blue');
+  setTimeout(()=>{ if(!G.door.attack&&!G.over) NULLM.visible=false; },700);
+}
+function doorFail(){
+  A.droneOff(); G.door.attack=false; $('doorWarn').classList.add('hidden');
+  if(G.calm){
+    const loss=Math.min(G.score,80); G.score-=loss; G.energy-=10; flash(.6); A.scream();
+    toast(`👁️ O NULL entrou na sala de segurança e roubou dados (−${loss} pts). [modo apresentação]`,'red');
+    G.stage=1; G.nullRoom='escritorio'; G.nextCreep=G.t+25; setTimeout(()=>NULLM.visible=false,600);
+  } else jumpscare('O NULL entrou na sala de segurança.');
+}
+function startBlackout(){
+  G.blackout=1; G.energy=0; if(G.tabletOpen) closeTablet();
+  ceilLight.intensity=0; crtLight.intensity=0; bulbMat.color.set(0x111111); fwLight.intensity=0; amb.intensity=.12;
+  A.tone(120,1.5,'sawtooth',.15,-80); toast('🔌 A energia acabou…','red');
+  if(A.hum) A.hum.g.gain.value=.02;
+  if(G.calm){ setTimeout(()=>endNight(false,'A energia acabou antes das 06:00.'),3500); return; }
+  setTimeout(()=>{ if(G.over) return; NULLM.visible=true; placeNullAtDoor(); A.step(); },3500);
+  setTimeout(()=>{ if(!G.over) jumpscare('A energia acabou e a porta ficou sem proteção.'); },8000);
+}
+
+/* =========================================================
+   RECEPÇÃO: VISITANTES (engenharia social)
+   ========================================================= */
+const winYaw=()=>innerWidth<1000?.08:.2;
+const vbox=$('visitor');
+function spawnVisitor(v){
+  v.arrived=true;
+  const m=makePerson(v); m.position.set(-1.9,0,-6.9); scene.add(m);
+  G.visitor={v,m,phase:'enter',path:[[-1.9,-3.25]],speed:1.25};
+  A.bell(); toast('🔔 Tem alguém chegando na recepção (janela à esquerda da mesa).','amber');
+}
+function openVisitorDialog(){
+  const {v}=G.visitor; G.vPause=true; if(G.tabletOpen) closeTablet(); $('toasts').innerHTML='';
+  A.intercom(); A.voice(); icomLed.material.color.set(0x33ff77);
+  $('vName').textContent=v.name; $('vClaim').textContent=v.claim;
+  drawFace($('vFace').getContext('2d'),68,68,v.look,false);
+  $('vSpeech').innerHTML=v.lines.map(l=>`<p>“${l}”</p>`).join('');
+  $('vEvid').innerHTML=v.evid.map(e=>`<li>${e}</li>`).join(''); $('vEvidWrap').classList.remove('hidden');
+  $('vBtns').innerHTML='<button class="vbtn ver" data-v="verify">📞 Verificar pelo canal oficial</button><button class="vbtn in" data-v="in">🔓 Liberar entrada</button><button class="vbtn out" data-v="out">⛔ Negar entrada</button>';
+  vbox.classList.remove('hidden'); document.body.classList.add('vopen');
+}
+vbox.addEventListener('click',e=>{
+  const b=e.target.closest('[data-v]'); if(!b||b.disabled) return; const a=b.dataset.v; A.click();
+  if(a==='verify') verifyVisitor(); else if(a==='in') decide(true); else if(a==='out') decide(false); else if(a==='go') resumeAfterVisitor();
+});
+function verifyVisitor(){
+  const v=G.visitor&&G.visitor.v; if(!v||v.verified) return; v.verified=true; A.intercom();
+  $('vSpeech').insertAdjacentHTML('beforeend',`<div class="verif">📞 ${v.verify}</div>`);
+  const b=vbox.querySelector('[data-v="verify"]'); if(b){ b.disabled=true; b.textContent='📞 Verificado'; }
+}
+function decide(allow){
+  const V=G.visitor; if(!V) return; const v=V.v; if(v.decision!==null) return;
+  v.decision=allow?'in':'out'; const correct=allow===v.good;
+  v.points=correct?(v.verified?VPTS_VERIFIED:VPTS_GUESS):0; G.score+=v.points;
+  if(!v.good&&allow){ vbox.classList.add('hidden'); startTransform(); return; }
+  correct?A.ok():A.bad();
+  const msg=correct
+    ? (v.good?`✔ Certo! ${v.name} tinha autorização.`:`✔ Golpe evitado! Técnica usada: ${v.tech}.`)+` +${v.points} pts`+(v.verified?'':` (verificando antes seriam +${VPTS_VERIFIED})`)
+    : '✗ Você barrou uma pessoa autorizada. Segurança também é não atrapalhar quem tem permissão.';
+  showVisitorResult(correct,msg,v.lesson);
+  if(!v.good&&!allow) setTimeout(()=>{ if(G.visitor&&G.visitor.v===v) flickerFace(); },450);
+}
+function showVisitorResult(ok,msg,lesson){
+  $('vEvidWrap').classList.add('hidden');
+  $('vSpeech').innerHTML=`<div class="fb ${ok?'good':'bad'}" style="margin:0 0 10px">${msg}</div><p style="color:#b9d6c6">💡 ${lesson}</p>`;
+  $('vBtns').innerHTML='<button class="vbtn go2" data-v="go">Continuar o plantão ▶</button>';
+  vbox.classList.remove('hidden');
+}
+function flickerFace(){
+  const u=G.visitor.m.userData; drawFace(u.faceT.userData.g,128,128,u.sp,true); u.faceT.needsUpdate=true; u.glow.intensity=1.2; A.whisper(); flash(.2);
+  setTimeout(()=>{ if(!G.visitor||G.visitor.m.userData!==u) return; drawFace(u.faceT.userData.g,128,128,u.sp,false); u.faceT.needsUpdate=true; u.glow.intensity=0; },230);
+}
+function resumeAfterVisitor(){
+  const V=G.visitor; vbox.classList.add('hidden'); document.body.classList.remove('vopen'); G.vPause=false; icomLed.material.color.set(0x226633);
+  if(!V) return;
+  if(V.phase==='gone'){ G.visitor=null; return; }
+  V.phase='leave';
+  if(V.v.decision==='in'){ V.path=[[-1.9,-4.45],[-.3,-4.45]]; V.exitIn=true; }
+  else { V.path=[[-1.9,-6.9]]; V.exitIn=false; }
+}
+function walkPose(u,amt){
+  u.legs[0].rotation.x=Math.sin(u.phase)*.5*amt; u.legs[1].rotation.x=-Math.sin(u.phase)*.5*amt;
+  u.arms[0].rotation.x=-Math.sin(u.phase)*.35*amt; u.arms[1].rotation.x=Math.sin(u.phase)*.35*amt;
+}
+function startTransform(){
+  G.trans={t:0,V:G.visitor,slammed:false,faced:false}; G.visitor.phase='trans'; A.droneOn();
+  toast(`⚠ ${G.visitor.v.name} não era quem dizia ser…`,'red');
+}
+function endTransform(){
+  const V=G.trans.V; G.trans=null; A.droneOff(); scene.remove(V.m); V.phase='gone';
+  hallRecLight.color.setHex(0xcfe6ff); hallRecLight.intensity=.75;
+  corruptHouse(V.v);
+  showVisitorResult(false,`⛔ Você liberou um golpista (${V.v.tech}). Ele virou um <b>Hospedeiro</b> e corrompeu a rede da casa! −40 pts`,V.v.lesson);
+}
+function corruptHouse(v){
+  G.score=Math.max(0,G.score-40); G.energy-=15; v.points=-40;
+  const pool=shuffle(DEVICES.filter(d=>d.state==='idle'||d.state==='alert')).slice(0,3);
+  pool.forEach(d=>{ d.state='compromised'; d.deadline=G.t; G.hosts.push(d.room); });
+  if(pool.length) toast(`☣ Corrompidos: ${pool.map(d=>d.icon+' '+d.name).join(', ')}`,'red');
+  if(G.stage<2){ G.stage=2; G.nullRoom=pool[0]?pool[0].room:'sala'; G.nextCreep=G.t+30; }
+  else if(G.stage<3){ G.stage=3; G.nullRoom='corredor'; G.nextCreep=G.t+12; }
+}
+function animTransform(dt,now){
+  const T=G.trans, m=T.V.m, u=m.userData; T.t+=dt; const t=T.t;
+  const k=Math.min(1,Math.max(0,(t-.5)/1.3));
+  if(t<3.1){ u.head.rotation.z=(Math.random()-.5)*(.25+k*.9); u.head.rotation.x=(Math.random()-.5)*.5*k; m.position.x=-1.9+(Math.random()-.5)*.03*(1+k*3); }
+  if(t>.5&&!T.faced){ T.faced=true; drawFace(u.faceT.userData.g,128,128,u.sp,true); u.faceT.needsUpdate=true; u.tent.group.visible=true; A.corrupt(); flash(.3); }
+  const black=new THREE.Color(0x0a0a0c); Object.keys(u.mats).forEach(key=>u.mats[key].color.copy(u.orig[key]).lerp(black,k*.92));
+  m.scale.set(1+k*.12,1+k*.06,1+k*.12); u.glow.intensity=k*2.2;
+  const lean=t<1.8?k*.12:t<3.1?.4:.1; m.rotation.x+=(lean-m.rotation.x)*Math.min(1,dt*12);   // curva-se e cola o rosto no vidro
+  u.arms.forEach((a,i)=>{ a.rotation.x=-k*1.5+Math.sin(now*22+i)*.06*k; a.scale.y=1+k*.6; });
+  u.legs.forEach(l=>l.rotation.x=0);
+  wiggle(u.tent,now,true);
+  hallRecLight.color.setHex(k>.3?0xff2030:0xcfe6ff); hallRecLight.intensity=.75*(Math.random()<.3?rnd(.1,1.6):1);
+  if(t>1.8&&t<3.1) m.position.z+=(-3.45-m.position.z)*Math.min(1,dt*18);
+  if(t>=2.1&&!T.slammed){
+    T.slammed=true; G.cracked=true; crack.visible=true; A.slam(); flash(.7);
+    if(!G.calm){ A.scream(); document.body.classList.add('shake'); setTimeout(()=>document.body.classList.remove('shake'),550); }
+    $('glitch').textContent='CORROMPIDO'; $('glitch').style.opacity=1; setTimeout(()=>$('glitch').style.opacity=0,900);
+  }
+  if(t>3.1){ m.position.z+=(-4.45-m.position.z)*Math.min(1,dt*4); m.position.x+=(-.3-m.position.x)*Math.min(1,dt*3); m.rotation.y+=(Math.PI/2-m.rotation.y)*Math.min(1,dt*8); }
+  if(t>4.0) endTransform();
+}
+function animVisitor(dt,now){
+  const V=G.visitor;
+  const extOpen=V&&((V.phase==='enter'&&V.m.position.z<-5.3)||(V.phase==='leave'&&!V.exitIn&&V.m.position.z<-4.9));
+  const inOpen=(V&&V.phase==='leave'&&V.exitIn&&V.m.position.x>-1.6)||(G.trans&&G.trans.t>3.0);
+  extDoor.rotation.y+=((extOpen?-1.35:0)-extDoor.rotation.y)*Math.min(1,dt*5);
+  inDoor.rotation.y+=((inOpen?-1.35:0)-inDoor.rotation.y)*Math.min(1,dt*5);
+  streetLight.intensity=-extDoor.rotation.y*.9;
+  if(!V||G.paused) return;
+  if(G.trans){ animTransform(dt,now); return; }
+  const m=V.m, u=m.userData;
+  if(V.phase==='enter'||V.phase==='leave'){
+    const tg=V.path[0];
+    if(tg){
+      const dx=tg[0]-m.position.x, dz=tg[1]-m.position.z, d=Math.hypot(dx,dz);
+      if(d<.05) V.path.shift();
+      else { const st=Math.min(d,V.speed*dt); m.position.x+=dx/d*st; m.position.z+=dz/d*st;
+        let ry=Math.atan2(dx,dz), diff=((ry-m.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI; m.rotation.y+=diff*Math.min(1,dt*10);
+        u.phase+=dt*8; walkPose(u,1); }
+    }
+    if(!V.path.length){
+      if(V.phase==='enter'){ V.phase='wait'; walkPose(u,0); }
+      else { scene.remove(m); G.visitor=null; return; }
+    }
+  }
+  if(V.phase==='wait'){
+    const diff=((0-m.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI; m.rotation.y+=diff*Math.min(1,dt*6);
+    walkPose(u,0); u.head.rotation.y=Math.sin(now*.7)*.1;
+    if(!G.vPause&&!G.door.attack&&!G.over&&!G.blackout&&V.v.decision===null) openVisitorDialog();
+  }
+}
+
+/* =========================================================
+   PÔSTER + ANIMATRÔNICOS DA DUPLA (segredo)
+   ========================================================= */
+const SUMMON_CLICKS=7;
+function shakeFor(s){ document.body.classList.add('shake'); setTimeout(()=>document.body.classList.remove('shake'),s*1000); }
+function clickPoster(){
+  posterWob=1;
+  if(G.anim){ A.laugh(); return; }
+  G.posterClicks++; const n=G.posterClicks;
+  A.funny(n-1);
+  if(n===5) toast('🤨 O pôster parece estar sorrindo mais…','amber');
+  if(n===6){ toast('😰 Melhor parar de clicar nesse pôster.','red'); A.tone(70,.8,'sawtooth',.1,-25); }
+  if(n>=SUMMON_CLICKS) summonAnimatronics();
+}
+function summonAnimatronics(){
+  G.anim={phase:'walk',t:0,stepT:0,t2:0};
+  if(G.door.attack){ G.door.attack=false; $('doorWarn').classList.add('hidden'); A.droneOff(); }
+  NULLM.visible=false; G.nextCreep=1e9; G.probes=[];
+  ANIM.forEach((a,i)=>{ a.visible=true; a.position.set(-10.4-i*.8,0,i?.45:.05); a.rotation.set(0,Math.PI/2,0); });
+  A.laugh(); A.musicBoxOn(); flash(.4); posterMat.emissive.setHex(0x660000);
+  toast('🎪 Você invocou a dupla do pôster! Eles estão vindo pelo corredor (porta da esquerda)…','red');
+}
+function animAnimatronics(dt,now){
+  const S=G.anim; if(!S||G.paused) return; S.t+=dt;
+  const moving=Math.sin(S.t*2.4)>-.35;                 // anda, trava, anda (servo velho)
+  const walking=(S.phase==='walk'||S.phase==='enter')&&moving;
+  ANIM.forEach((a,i)=>{ const u=a.userData;
+    if(walking) u.phase+=dt*3.2;
+    const ph=Math.round(u.phase*5)/5;                    // movimento "aos trancos"
+    u.legs.forEach((l,k)=>{ const s=Math.sin(ph+(k?Math.PI:0)); l.hip.rotation.x=walking?s*.32:0; l.knee.rotation.x=walking?Math.max(0,-s)*.45:0; });
+    if(S.phase==='bang'){ u.arms.forEach((ar,k)=>{ ar.shoulder.rotation.set(-1.5+Math.sin(now*9+k*2)*.45,0,0); ar.fore.rotation.set(0,0,0); }); }
+    else if(i===0){ u.arms[1].shoulder.rotation.set(-1.9,0,0); u.arms[1].fore.rotation.set(-1.3,0,0); u.arms[0].shoulder.rotation.set(walking?Math.sin(ph)*.3:0,0,0); }
+    else { u.arms[0].shoulder.rotation.set(0,0,-2.5); u.arms[0].fore.rotation.set(0,0,Math.sin(now*6)*.45); u.arms[1].shoulder.rotation.set(walking?-Math.sin(ph)*.3:0,0,0); }
+    if(Math.random()<.03) u.head.rotation.set(rnd(-.3,.3),rnd(-.6,.6),rnd(-.35,.35));
+    else { u.head.rotation.x*=.95; u.head.rotation.y*=.95; u.head.rotation.z*=.95; }
+    u.light.intensity=.6+Math.random()*.35;
+  });
+  S.stepT-=dt;
+  if(walking&&S.stepT<=0){ S.stepT=.55; A.clank(); if(Math.random()<.55) A.servo(); if(Math.random()<.15) A.laugh(); }
+  const doorShut=shutter.position.y<2.3&&!G.doorRipped;
+  if(S.phase==='walk'){
+    let arrived=0;
+    ANIM.forEach((a,i)=>{ const stop=-3.85-i*.7; if(a.position.x<stop){ if(moving) a.position.x=Math.min(stop,a.position.x+.42*dt); } else arrived++; });
+    if(arrived===2){ if(doorShut){ S.phase='bang'; S.t2=0; toast('🚪 Eles estão batendo na porta…','red'); } else { S.phase='enter'; } if(G.tabletOpen) closeTablet(); }
+  } else if(S.phase==='bang'){
+    const prev=S.t2; S.t2+=dt; G.door.closed=Math.max(G.door.closed,1);
+    if(Math.floor(S.t2/.7)!==Math.floor(prev/.7)){ A.slam(); flash(.3); shakeFor(.25); }
+    shutter.position.x=-3.1+Math.sin(now*40)*.02;
+    if(S.t2>2.8){ S.phase='rip'; S.t2=0; G.doorRipped=true; G.door.closed=0; A.crash(); flash(.85); shakeFor(.7); toast('💥 Eles ARRANCARAM a porta de aço!','red'); }
+  } else if(S.phase==='rip'){
+    S.t2+=dt; const k=Math.min(1,S.t2/1.1);
+    shutter.position.set(-3.1-k*1.2,1.075-k*.95,.25+k*.9); shutter.rotation.set(0,k*.6,k*1.45);
+    if(S.t2>1.2) S.phase='enter';
+  } else if(S.phase==='enter'){
+    if(G.tabletOpen) closeTablet();
+    let done=0;
+    ANIM.forEach((a,i)=>{
+      if(doorShut&&a.position.x<-2.9){ S.phase='bang'; S.t2=0; return; }
+      const tx=i?-.6:-1.1, tz=i?.75:.35, dx=tx-a.position.x, dz=tz-a.position.z, d=Math.hypot(dx,dz);
+      if(d>.06){ if(moving){ const st=Math.min(d,.38*dt); a.position.x+=dx/d*st; a.position.z+=dz/d*st; } } else done++;
+      const face=Math.atan2(camera.position.x-a.position.x,camera.position.z-a.position.z);
+      a.rotation.y+=(((face-a.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI)*Math.min(1,dt*2);
+    });
+    if(ANIM[0].position.x>-2.6) { tYaw=.95; tPitch=.02; }  // você não consegue desviar o olhar
+    if(done===2) killByAnimatronics();
+  } else if(S.phase==='kill'){
+    S.t2+=dt; const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+    const side=new THREE.Vector3(-dir.z,0,dir.x).normalize();
+    ANIM.forEach((a,i)=>{ const tg=camera.position.clone().add(dir.clone().multiplyScalar(.62)).add(side.clone().multiplyScalar(i?.24:-.24)); tg.y=camera.position.y-2.15*.88;
+      a.position.lerp(tg,Math.min(1,dt*9)); a.lookAt(camera.position.x,a.position.y,camera.position.z); a.position.x+=rnd(-.02,.02);
+      a.userData.arms.forEach(ar=>{ ar.shoulder.rotation.set(-1.6+rnd(-.2,.2),0,0); }); });
+    if(S.t2>1.9&&!S.ended){ S.ended=true; document.body.classList.remove('shake'); $('glitch').style.opacity=0; A.musicBoxOff();
+      endNight(false,'Você clicou demais no pôster e invocou a dupla da ENASN. Eles arrancaram a porta e pegaram você.',false); }
+  }
+}
+function killByAnimatronics(){
+  const S=G.anim; S.phase='kill'; S.t2=0; G.over=true; G.running=false;
+  if(G.tabletOpen) closeTablet(); vbox.classList.add('hidden');
+  A.scream(); A.laugh(); A.crash(); flash(.9); document.body.classList.add('shake');
+  $('glitch').textContent='HORA DO SHOW'; $('glitch').style.opacity=1;
+}
+
+/* =========================================================
+   EFEITOS
+   ========================================================= */
+function toast(msg,cls){ const t=document.createElement('div'); t.className='toast '+(cls||''); t.textContent=msg; $('toasts').prepend(t);
+  while($('toasts').children.length>4) $('toasts').lastChild.remove(); setTimeout(()=>t.remove(),4200); }
+function flash(a){ const f=$('flash'); f.style.opacity=a; setTimeout(()=>f.style.opacity=0,180); }
+let jumping=0;
+function jumpscare(reason){
+  if(G.over) return; G.over=true; G.running=false; if(G.tabletOpen) closeTablet();
+  jumping=performance.now(); NULLM.visible=true; A.droneOff(); A.scream(); document.body.classList.add('shake');
+  $('glitch').textContent='ACESSO TOTAL'; $('glitch').style.opacity=1; flash(.9); setTimeout(()=>flash(.9),300);
+  setTimeout(()=>{ document.body.classList.remove('shake'); $('glitch').style.opacity=0; jumping=0; endNight(false,reason,true); },1600);
+}
+
+/* =========================================================
+   FIM DA NOITE / RELATÓRIO
+   ========================================================= */
+function win(){ if(G.over) return; G.over=true; G.running=false; if(G.tabletOpen) closeTablet(); A.win(); endNight(true,'Você sobreviveu até as 06:00!'); }
+function endNight(survived,reason,eaten){
+  G.over=true; G.running=false;
+  ['hud','bottom','doorWarn','hint','visitor'].forEach(id=>$(id).classList.add('hidden')); A.droneOff(); A.musicBoxOff(); document.body.classList.remove('vopen');
+  const vRight=VISITORS.filter(v=>v.decision&&((v.decision==='in')===v.good)).length;
+  const vRows=VISITORS.map(v=>{
+    const truth=v.good?'<span class="ok">Pessoa autorizada</span>':`<span class="no">Golpe: ${v.tech}</span>`;
+    let dec='<span style="color:var(--muted)">Não chegou</span>', res='—';
+    if(v.decision){ const ok=(v.decision==='in')===v.good; dec=v.decision==='in'?'🔓 Liberou':'⛔ Negou';
+      res=ok?'<span class="ok">Acertou</span>':(v.good?'<span class="warn">Barrou quem podia entrar</span>':'<span class="no">Virou Hospedeiro</span>'); }
+    return `<tr><td><b>${v.name}</b><br><small style="color:var(--muted)">${v.claim}</small></td><td>${truth}</td><td>${dec}</td><td>${v.decision?(v.verified?'<span class="ok">✔ Sim</span>':'Não'):'—'}</td><td>${res}</td><td style="font-family:var(--mono);font-size:20px">${v.points}</td></tr>`;
+  }).join('');
+  const pct=Math.round(G.score/MAXSCORE*100);
+  const level=pct>=85?['🏰 Casa blindada','var(--green)']:pct>=60?['🛡️ Proteção razoável','var(--blue)']:pct>=35?['⚠️ Casa vulnerável','var(--amber)']:['💀 Casa dominada pelo NULL','var(--red)'];
+  const prot=DEVICES.filter(d=>d.state==='secured'||d.state==='cleared').length;
+  const rows=DEVICES.map(d=>{
+    const res = d.state==='secured'?(d.wasComp?'<span class="warn">Recuperado</span>':'<span class="ok">Protegido</span>')
+      : d.state==='cleared'?'<span class="ok">Falso alarme identificado</span>'
+      : d.state==='compromised'?'<span class="no">Invadido</span>'
+      : d.state==='alert'?'<span class="warn">Sem resposta</span>':'<span style="color:var(--muted)">Não chegou a alertar</span>';
+    const reached=d.state!=='idle';
+    const done=d.state==='secured'||d.state==='cleared';
+    const errs=n=>n?`<br><small class="no">${n} erro(s)</small>`:'';
+    const vulnCell=!reached?'—':(d.step>=1||done?VULNS[d.vuln]:`<span style="color:var(--muted)">não identificada</span><br><small>era: ${VULNS[d.vuln]}</small>`)+errs(d.tries.vuln.length);
+    const thrCell=!reached?'—':d.threat?(d.step>=2||done?THREATS[d.threat]:`<span style="color:var(--muted)">não reconhecida</span><br><small>era: ${THREATS[d.threat]}</small>`)+(d.tries.threat.length?`<br><small class="no">${d.tries.threat.length} erro(s)</small>`:''):'<span style="color:var(--muted)">nenhuma (era seguro)</span>';
+    const fixCell=d.chosenFix?d.chosenFix+(d.tries.fix.length?`<br><small class="no">${d.tries.fix.length} medida(s) errada(s) antes</small>`:''):(d.state==='cleared'?'Nenhuma ação necessária':'—');
+    return `<tr><td>${d.icon} <b>${d.name}</b><br><small style="color:var(--muted)">${ROOMS[d.room].name} · ${d.proto}</small></td><td>${vulnCell}</td><td>${thrCell}</td><td>${fixCell}</td><td>${res}</td><td style="font-family:var(--mono);font-size:20px">${d.points}</td></tr>`;
+  }).join('');
+  $('reportIn').innerHTML=`
+    <div class="kicker">Relatório de segurança · ${survived?'Plantão concluído':'Plantão interrompido'}</div>
+    <h1 style="font-size:clamp(44px,8vw,80px)">${survived?'06:00 <em style="color:var(--green);text-shadow:0 0 24px rgba(87,255,154,.5)">AMANHECEU</em>':'REDE <em>COMPROMETIDA</em>'}</h1>
+    <p class="lead">${reason} ${eaten?'Ele tomou o controle da central.':''}</p>
+    <div class="stats">
+      <div class="stat"><small>Nível de proteção</small><b style="color:${level[1]};font-size:24px;font-family:var(--sans);font-weight:700">${level[0]}</b></div>
+      <div class="stat"><small>Segurança</small><b>${pct}%</b></div>
+      <div class="stat"><small>Pontuação</small><b>${G.score}/${MAXSCORE}</b></div>
+      <div class="stat"><small>Dispositivos seguros</small><b>${prot}/${DEVICES.length}</b></div>
+      <div class="stat"><small>Visitantes certos</small><b>${vRight}/${VISITORS.length}</b></div>
+      <div class="stat"><small>Energia restante</small><b>${Math.max(0,G.energy|0)}%</b></div>
+    </div>
+    <h3 class="subh" style="margin-top:6px">Aparelhos · vulnerabilidades e ameaças</h3>
+    <div class="tblwrap"><table><thead><tr><th>Dispositivo</th><th>Vulnerabilidade identificada</th><th>Ameaça reconhecida</th><th>Medida escolhida</th><th>Resultado</th><th>Pts</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <h3 class="subh">Recepção · engenharia social</h3>
+    <div class="tblwrap"><table><thead><tr><th>Visitante</th><th>Na verdade era</th><th>Sua decisão</th><th>Verificou?</th><th>Resultado</th><th>Pts</th></tr></thead><tbody>${vRows}</tbody></table></div>
+    <div class="learn">
+      <div><b>Vulnerabilidade</b> é a falha ou ponto fraco de um dispositivo, sistema ou configuração. Ex.: câmera com senha padrão.</div>
+      <div><b>Ameaça</b> é quem ou o que explora a falha: um invasor, um malware ou uma ação maliciosa. Ex.: alguém tentando entrar na câmera.</div>
+    </div>
+    <div class="row"><button class="go" onclick="location.reload()">↻ Jogar de novo</button><span class="muted">Falha + ameaça = impacto. Corrigir a falha tira a chance da ameaça.</span></div>`;
+  $('report').classList.remove('hidden');
+}
+
+/* =========================================================
+   LOOP PRINCIPAL
+   ========================================================= */
+function update(dt){
+  if(!G.running||G.paused) return;
+  if(G.vPause||G.trans) return;           // tempo parado enquanto alguém fala na recepção
+  G.t+=dt;
+  if(!G.visitor&&!G.anim&&G.vq.length&&G.t>=G.vq[0].at&&!G.door.attack&&!G.blackout) spawnVisitor(G.vq.shift());
+  const hour=Math.floor(G.t/(NIGHT/6)); if(hour!==G.lastHour){ if(G.lastHour>=0&&hour<6){ A.hour(); toast(`🕐 ${String(hour).padStart(2,'0')}:00`,'blue'); } G.lastHour=hour; }
+  if(!G.blackout){
+    G.energy-=(0.18+(G.tabletOpen?.1:0))*dt;
+    if(G.energy<=0) startBlackout();
+  }
+  if(G.door.closed>0){ G.door.closed-=dt; if(G.door.closed<=0){ $('btnFirewall').classList.remove('cool'); renderTablet(); } }
+  for(const d of DEVICES){
+    if(d.state==='idle'&&G.t>=d.at) triggerAlert(d);
+    else if(d.state==='alert'&&G.t>=d.deadline) compromise(d);
+  }
+  if(G.probes.length&&G.t>=G.probes[0]){ G.probes.shift(); if(G.stage<3&&!G.door.attack){ G.stage=2; advance(); } }
+  if(!G.door.attack&&G.t>=G.nextCreep){
+    if(G.stage===3||(G.stage>=1&&compCount()>0)) advance(); else G.nextCreep=G.t+20;
+  }
+  if(G.door.attack&&G.door.closed>0) repel();
+  if(G.door.attack){ G.door.timer-=dt; $('doorT').textContent=Math.max(0,Math.ceil(G.door.timer)); if(G.door.timer<=0) doorFail(); }
+  if(G.t>=NIGHT&&!G.over&&!G.anim) win();
+}
+let uiTick=0;
+function updateHUD(){
+  $('clock').firstChild.nodeValue=fmtClock(G.t);
+  const e=Math.max(0,G.energy); $('enTxt').textContent=Math.ceil(e)+'%'; const eb=$('enBar'); eb.style.width=e+'%'; eb.style.background=e>50?'var(--green)':e>25?'var(--amber)':'var(--red)';
+  $('scTxt').textContent=G.score+' pts'; $('scBar').style.width=(G.score/MAXSCORE*100)+'%';
+  $('alTxt').textContent=activeAlerts().length;
+}
+
+// olhar com o mouse
+let yaw=0,pitch=-.08,tYaw=0,tPitch=-.08,mouseX=.5,mouseY=.5,dragging=false,lastTX=0;
+addEventListener('mousemove',e=>{ mouseX=e.clientX/innerWidth; mouseY=e.clientY/innerHeight; if(!G.tabletOpen&&!jumping&&!G.vPause&&!G.trans){ tYaw=-(mouseX*2-1)*1.38; tPitch=-.08-(mouseY*2-1)*.18; } updateHover(e); });
+addEventListener('touchstart',e=>{ dragging=true; lastTX=e.touches[0].clientX; },{passive:true});
+addEventListener('touchmove',e=>{ if(!dragging||G.tabletOpen) return; const x=e.touches[0].clientX; tYaw=Math.max(-1.38,Math.min(1.38,tYaw+(x-lastTX)*.006)); lastTX=x; },{passive:true});
+addEventListener('touchend',()=>dragging=false);
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
+function pick(cx,cy){ ptr.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1); ray.setFromCamera(ptr,camera); const h=ray.intersectObjects([crtScreen,fwBtn,posterMesh],false); return h[0]&&h[0].object.name; }
+function updateHover(e){ if(G.tabletOpen||!G.running) { renderer.domElement.style.cursor='default'; return; } renderer.domElement.style.cursor=pick(e.clientX,e.clientY)?'pointer':'default'; }
+renderer.domElement.addEventListener('click',e=>{ if(!G.running||G.tabletOpen) return; const p=pick(e.clientX,e.clientY); if(p==='monitor') openTablet(); else if(p==='firewall') firewall(); else if(p==='poster'&&!G.vPause&&!G.trans) clickPoster(); });
+addEventListener('keydown',e=>{
+  if(!G.running&&!G.paused) return;
+  if((G.vPause||G.trans)&&e.code!=='KeyP') return;
+  if(e.code==='Space'){ e.preventDefault(); if(!G.paused) toggleTablet(); }
+  else if(e.code==='KeyF'){ if(!G.paused) firewall(); }
+  else if(e.code==='Escape'){ if(G.tabletOpen) closeTablet(); }
+  else if(e.code==='KeyP'){ togglePause(); }
+  else if(G.tabletOpen&&/^Digit[1-8]$/.test(e.code)){ const r=Object.keys(ROOMS).find(k=>ROOMS[k].cam==='CAM 0'+e.code.slice(5)); if(r) selectRoom(r); }
+});
+function togglePause(){ if(G.over) return; G.paused=!G.paused; G.running=!G.paused; $('pauseScr').classList.toggle('hidden',!G.paused); if(A.ctx) G.paused?A.ctx.suspend():A.ctx.resume(); }
+$('btnResume').onclick=togglePause;
+$('btnCams').onclick=()=>{A.click(); toggleTablet();};
+$('btnFirewall').onclick=()=>firewall();
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+const clock=new THREE.Clock(); let texT=0, smallT=0;
+function loop(){
+  requestAnimationFrame(loop);
+  const raw=clock.getDelta(), dt=Math.min(raw,.05), now=performance.now()/1000;
+  update(Math.min(raw,.25)); // o relógio do jogo não fica lento em computadores mais fracos
+  // câmera
+  if(!G.running&&!G.over&&!G.paused){ tYaw=Math.sin(now*.15)*.9; }
+  if(G.vPause||G.trans){ tYaw=winYaw(); tPitch=-.02; }
+  animVisitor(dt,now);
+  // Espreitador na janela dos servidores
+  if(G.running&&!G.paused&&!G.vPause&&!G.trans&&!G.blackout&&!G.peek&&(G.hosts.length||compCount()>=2)){
+    G.peekT-=dt; if(G.peekT<=0){ G.peek={t:0,seen:false}; A.creak(); setTimeout(()=>A.whisper(),400); }
+  }
+  if(G.peek){
+    const P=G.peek; if(!G.paused) P.t+=dt; const up=P.t<.7?P.t/.7:P.t<2.6?1:Math.max(0,1-(P.t-2.6)/.5);
+    PEEK.position.y=.3+up*.92; PEEK.position.z=-.2+Math.sin(now*1.3)*.05; PEEK.rotation.x=Math.sin(now*2)*.08;
+    PEEK.userData.eyes.forEach(m=>m.color.setHex(Math.random()<.05?0x220000:0xff1a2e)); PEEK.userData.light.intensity=up*.9;
+    if(!P.seen&&up>=1&&yaw<-.75){ P.seen=true; A.sting(); P.t=Math.max(P.t,2.3); }
+    if(P.t>3.1){ G.peek=null; G.peekT=rnd(16,30); PEEK.position.y=.3; PEEK.userData.light.intensity=0; }
+  }
+  if(G.blackout) hallRecLight.intensity=0;
+  else if(G.cracked) hallRecLight.intensity=G.trans?hallRecLight.intensity:(Math.random()<.04?rnd(.05,.5):.6);
+  else if(!G.trans) hallRecLight.intensity=Math.random()<.01?rnd(.2,.6):.75;
+  yaw+=(tYaw-yaw)*Math.min(1,dt*5); pitch+=(tPitch-pitch)*Math.min(1,dt*5);
+  camera.rotation.set(pitch+Math.sin(now*1.3)*.006,yaw,0);
+  camera.position.y=1.25+Math.sin(now*1.3)*.008;
+  // ventilador e luzes
+  blades.rotation.z-=dt*(G.blackout?0:22);
+  if(!G.blackout){
+    const danger=G.door.attack?1:G.stage>=3?.5:0;
+    let fl=1; if(Math.random()<.015+danger*.12) fl=rnd(.1,.7);
+    ceilLight.intensity=fl*(1-danger*.25); bulbMat.color.setScalar(.35+fl*.65);
+    hallLight.intensity=.45+danger*1.6+Math.sin(now*6)*.08*danger;
+    crtLight.intensity=.5+Math.random()*.08;
+    fwLight.intensity=G.door.attack?(.4+Math.sin(now*14)*.4):.25;
+    fwBtnMat.emissiveIntensity=G.door.attack?(1+Math.sin(now*14)):.6;
+  } else { hallLight.intensity=.6+Math.sin(now*3)*.2; }
+  const cp=compCount();
+  leds.forEach((l,i)=>{ const on=Math.sin(now*l.sp+l.ph)>0; const bad=(i%7)<cp; l.m.color.setHex(G.blackout?0x050505:bad?(on?0xff2040:0x3a0008):(on?0x33ff88:0x0a3a1e)); });
+  if(!G.doorRipped) shutter.position.y += ((G.door.closed>0?1.075:3.3)-shutter.position.y)*Math.min(1,dt*12);
+  animAnimatronics(dt,now);
+  posterWob=Math.max(0,posterWob-dt*1.8); posterG.rotation.z=Math.sin(now*28)*.06*posterWob;
+  if(!G.anim&&G.posterClicks>=5) posterMat.emissive.setRGB(.18+Math.sin(now*4)*.12,0,0);
+  // NULL
+  if(NULLM.visible){
+    const u=NULLM.userData; u.eyeMat.color.setHex(Math.random()<.08?0x330006:0xff1a2e); u.eyeLight.intensity=1+Math.random()*.6;
+    u.head.rotation.z=.12+Math.sin(now*2.2)*.06;
+    u.eyes.forEach(e=>e.m.color.setHex(Math.sin(now*9+e.ph)>.7||Math.random()<.04?0x330006:0xff1a2e));
+    wiggle(u.tent,now,G.door.attack||!!jumping);
+    u.mouth.scale.y=(G.door.attack||jumping)?3+Math.sin(now*14)*2:1;
+    if(Math.random()<.025) u.head.rotation.y=rnd(-.6,.6); else u.head.rotation.y*=.9;
+    if(jumping){
+      const k=Math.min(1,(performance.now()-jumping)/220);
+      const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+      const target=camera.position.clone().add(dir.multiplyScalar(.75-.25*k)); target.y=camera.position.y-2.05;
+      NULLM.position.lerp(target,.5); NULLM.lookAt(camera.position.x,NULLM.position.y,camera.position.z);
+      NULLM.position.x+=rnd(-.03,.03); NULLM.position.y+=rnd(-.02,.02);
+    } else if(!G.over) { NULLM.position.x=-3.75+Math.sin(now*.8)*.05; }
+  }
+  // texturas
+  texT+=dt; smallT+=dt;
+  if(texT>.12){ texT=0; drawCRT(); drawClock(); if(G.running) updateHUD(); if(G.tabletOpen&&++uiTick%4===0){ renderAlerts(); const dl=$('devLeft'); if(dl&&G.curDev) dl.textContent='· '+Math.max(0,Math.ceil(G.curDev.deadline-G.t))+'s'; } }
+  if(smallT>.08){ smallT=0; drawSmalls(); }
+  if(G.tabletOpen) drawFeed();
+  renderer.render(scene,camera);
+}
+
+/* =========================================================
+   INÍCIO
+   ========================================================= */
+resetGame(); drawCRT(); drawClock(); loop();
+// landing page: lista de aparelhos e imagem do NULL
+$('lpDevices').innerHTML=DEVICES.map(d=>`<div class="devc"><span class="e">${d.icon}</span><div><b>${d.name}</b><small>${ROOMS[d.room].cam} · ${ROOMS[d.room].name}</small><span class="pr">${d.proto}</span></div></div>`).join('');
+(function drawNullCard(){
+  const c=$('nullCanvas'), g=c.getContext('2d'), w=c.width, h=c.height;
+  const bg=g.createLinearGradient(0,0,0,h); bg.addColorStop(0,'#0a1410'); bg.addColorStop(1,'#020403'); g.fillStyle=bg; g.fillRect(0,0,w,h);
+  g.strokeStyle='rgba(140,255,190,.12)'; g.lineWidth=1.5;
+  g.strokeRect(w*.22,h*.12,w*.56,h*.62);
+  [[0,0,w*.22,h*.12],[w,0,w*.78,h*.12],[0,h,w*.22,h*.74],[w,h,w*.78,h*.74]].forEach(l=>{g.beginPath();g.moveTo(l[0],l[1]);g.lineTo(l[2],l[3]);g.stroke();});
+  const glow=g.createRadialGradient(w/2,h*.4,10,w/2,h*.4,w*.6); glow.addColorStop(0,'rgba(255,30,50,.18)'); glow.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=glow; g.fillRect(0,0,w,h);
+  drawNull2D(g,w/2,h*.93,1.55);
+  for(let i=0;i<1800;i++){ g.fillStyle=`rgba(180,255,210,${Math.random()*.08})`; g.fillRect(Math.random()*w,Math.random()*h,2,2); }
+  for(let y=0;y<h;y+=3){ g.fillStyle='rgba(0,0,0,.2)'; g.fillRect(0,y,w,1); }
+  g.font='24px VT323, monospace'; g.fillStyle='#dfffe9'; g.fillText('CAM 02 · CORREDOR',12,28); g.fillStyle='#ff3047'; g.beginPath(); g.arc(18,h-18,6,0,7); g.fill(); g.fillStyle='#dfffe9'; g.fillText('REC 03:41',30,h-11);
+})();
+function camCard(id,label,drawFn){
+  const c=$(id), g=c.getContext('2d'), w=c.width, h=c.height;
+  const bg=g.createLinearGradient(0,0,0,h); bg.addColorStop(0,'#0a1410'); bg.addColorStop(1,'#020403'); g.fillStyle=bg; g.fillRect(0,0,w,h);
+  const glow=g.createRadialGradient(w/2,h*.5,10,w/2,h*.5,w*.6); glow.addColorStop(0,'rgba(255,30,50,.16)'); glow.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=glow; g.fillRect(0,0,w,h);
+  drawFn(g,w,h);
+  for(let i=0;i<1400;i++){ g.fillStyle=`rgba(180,255,210,${Math.random()*.08})`; g.fillRect(Math.random()*w,Math.random()*h,2,2); }
+  for(let y=0;y<h;y+=3){ g.fillStyle='rgba(0,0,0,.2)'; g.fillRect(0,y,w,1); }
+  g.font='22px VT323, monospace'; g.fillStyle='#dfffe9'; g.fillText(label,10,24);
+}
+camCard('hostCanvas','CAM 05 · COZINHA',(g,w,h)=>{ g.fillStyle='#22332c'; g.fillRect(w*.08,h*.12,w*.2,h*.88); drawHost2D(g,w*.58,h*1.02,.92); });
+camCard('peekCanvas','JANELA · SERVIDORES',(g,w,h)=>{ g.fillStyle='#0b1512'; g.fillRect(0,h*.68,w,h*.32); g.strokeStyle='#4a5a55'; g.lineWidth=6; g.strokeRect(w*.12,h*.14,w*.76,h*.56);
+  for(let i=0;i<5;i++){ g.fillStyle='#062'; g.fillRect(w*.6+i*8,h*.3+i*14,4,4); } drawPeeker2D(g,w*.5,h*.66,1.05); });
+const briefTxt='> MENSAGEM DO SUPERVISOR\n> Boa noite. Hoje você cuida da Casa Conectada.\n> Detectamos algo na rede. Os técnicos chamam de NULL.\n> Ele não arromba portas: entra pelos aparelhos com falhas.\n> Cada alerta é uma pista. Descubra a falha, quem a explora\n> e como protegê-la. Se ele chegar à porta... tranque.\n> E cuidado com quem bate na recepção:\n> nem todo mundo que sorri é gente.\n> Aguente até as 06:00.';
+let bi=0; (function typeBrief(){ if(bi<=briefTxt.length){ $('brief').textContent=briefTxt.slice(0,bi)+'▌'; bi+=2; setTimeout(typeBrief,22); } else $('brief').textContent=briefTxt; })();
+$('btnStart').onclick=()=>{
+  A.init(); resetGame(); G.calm=$('calm').checked; G.running=true; G.lastHour=0;
+  $('start').classList.add('hidden'); ['hud','bottom','hint'].forEach(id=>$(id).classList.remove('hidden'));
+  tYaw=0; A.hour(); toast('🕛 00:00: o plantão começou. Fique de olho no monitor.','blue');
+  setTimeout(()=>$('hint').style.opacity=0,9000);
+};
+</script>
+</body>
+</html>
